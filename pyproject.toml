@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "achilles-load"
+version = "0.1.0"
+description = "Plantar load to Achilles tendon load: a physics-informed feasibility demo"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24,<2",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "scikit-learn",
+    "torch",
+    "tqdm",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

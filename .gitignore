@@ -1,0 +1,20 @@
+# data is downloaded by scripts/download_data.py, not committed
+data/raw/
+data/opensim/
+artifacts/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+
+# env / os
+.DS_Store
+.venv/
+venv/
+
+# NOTE: figures/ ARE committed so they render in the README on GitHub.

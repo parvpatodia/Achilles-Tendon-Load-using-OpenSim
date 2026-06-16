@@ -1,0 +1,14 @@
+# Core MVP stack (Stages 1, 2, 4). Python 3.10-3.11.
+numpy>=1.24,<2
+pandas
+scipy
+matplotlib
+scikit-learn
+torch
+tqdm
+pytest
+
+# Stage 3 (OpenSim cross-check) is optional. Install separately:
+#   pip install opensim         # PyPI wheel, OpenSim 4.6+ (note: needs numpy>=2.1)
+#   conda install -c opensim-org opensim
+# If OpenSim is absent the pipeline runs Stages 1/2/4 and skips Stage 3 cleanly.
