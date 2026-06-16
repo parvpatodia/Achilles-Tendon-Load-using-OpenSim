@@ -1,5 +1,7 @@
 # Plantar Load → Achilles Tendon Load
 
+[![tests](https://github.com/parvpatodia/Achilles-Tendon-Load-using-OpenSim/actions/workflows/ci.yml/badge.svg)](https://github.com/parvpatodia/Achilles-Tendon-Load-using-OpenSim/actions/workflows/ci.yml)
+
 **Your insole measures the load *under* the foot. This estimates the load *inside* the Achilles tendon, which is the quantity that actually drives injury.** One step further into the body, on real walking and running data, with every assumption checked.
 
 ---
@@ -127,6 +129,7 @@ We deliberately output a **relative load score over time**, not an absolute stre
 - **Stand-in data.** Public walking/running data stands in for your insole; the four insole zones are derived from the total push, not measured pressure.
 - **Relative, not absolute.** Tendon thickness, stiffness, and lever are population averages, so the absolute stress is indicative; the product score is deliberately relative.
 - **No internal ground truth.** Tendon load is not directly measured here (it rarely is, even in labs); the OpenSim check is model-vs-model, not proof.
+- **A lower bound on force.** We use the *net* ankle effort, which already subtracts any opposing muscle pulling the other way (co-contraction). Real Achilles force is therefore a little higher than we report; the honest fix is muscle-activity (EMG) measurement.
 - **Healthy gait.** All subjects are healthy. Transfer to patients and to real insole signals is unproven.
 
 **What I'd validate next with your data:** fit the lever per athlete; calibrate the insole zones to real pressure; retrain the model on your insole + motion signals (where the physics rules should start to earn their place); and test the load score against real symptoms in your rehab cohort.
