@@ -67,7 +67,8 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
 
     # third panel: where running sits on the tendon's stress-strain curve
     mat = ToeLinearTendon(tendon)
-    eps = np.linspace(0, tendon.failure_strain * 1.15, 200)
+    rupture_eps = float(mat.strain(np.array([tendon.ultimate_stress_pa]))[0]) * 100
+    eps = np.linspace(0, rupture_eps / 100 * 1.05, 200)
     sigma = mat.stress(eps) / 1e6
     ax_m.plot(eps * 100, sigma, color=INK, lw=2.4, zorder=3, label="tendon material law")
     ax_m.axvspan(0, tendon.toe_strain * 100, color=ACCENT, alpha=0.10)
@@ -78,12 +79,12 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
     peak_sig = np.array([np.max(r.stress_pa) / 1e6 for r in results])
     ax_m.scatter(peak_eps, peak_sig, s=22, alpha=0.45, color=ACCENT2,
                  edgecolors="none", zorder=2, label="per-stride peak (running)")
-    ax_m.scatter([tendon.failure_strain * 100], [ult], s=90, color=WARN, zorder=4,
-                 marker="X", label="rupture (~8%, ~100 MPa)")
+    ax_m.scatter([rupture_eps], [ult], s=90, color=WARN, zorder=4, marker="X",
+                 label=f"rupture (~{rupture_eps:.0f}%, ~{ult:.0f} MPa)")
     ax_m.set_title("Tendon constitutive curve (toe + linear)")
     ax_m.set_xlabel("Tendon strain (%)")
     ax_m.set_ylabel("Tendon stress (MPa)")
-    ax_m.set_xlim(0, tendon.failure_strain * 115)
+    ax_m.set_xlim(0, rupture_eps * 1.12)
     ax_m.set_ylim(0, ult * 1.1)
     ax_m.legend(fontsize=8, loc="lower right")
 
