@@ -19,6 +19,7 @@ dependencies:
       - torch
       - tqdm
       - pytest
+      - openpyxl
       # Optional Stage 3 cross-check (OpenSim 4.6+ wheel). Comment out if it
       # conflicts with the pinned numpy; Stages 1/2/4 do not need it.
       # - opensim

@@ -51,22 +51,38 @@ class FukuchiDataSource(GaitDataSource):
         self.data_dir = Path(data_dir)
         self.sides = sides
         self.require_all_speeds = require_all_speeds
-        self._mass_by_subject = self._load_masses(self.data_dir / "RBDSinfo.txt")
+        self._mass_by_subject, self._height_by_subject = self._load_anthropometry(
+            self.data_dir / "RBDSinfo.txt")
+        # cohort-mean height: subject moment-arm scale is centred on 1.0, so the
+        # cohort-average result is unchanged while each athlete gets their own lever.
+        heights = [h for h in self._height_by_subject.values() if h > 0]
+        self._mean_height_cm = float(np.mean(heights)) if heights else 0.0
 
     # -- metadata -----------------------------------------------------------
     @staticmethod
-    def _load_masses(info_path: Path) -> dict[str, float]:
-        """Map subject id (e.g. 'RBDS001') -> body mass in kg."""
+    def _load_anthropometry(info_path: Path) -> tuple[dict[str, float], dict[str, float]]:
+        """Map subject id (e.g. 'RBDS001') -> body mass (kg) and height (cm)."""
         if not info_path.exists():
             raise FileNotFoundError(
                 f"{info_path} not found. Run scripts/download_data.py first."
             )
         info = pd.read_csv(info_path, sep="\t")
         masses: dict[str, float] = {}
+        heights: dict[str, float] = {}
         for _, row in info.iterrows():
             subj = f"RBDS{int(row['Subject']):03d}"
             masses[subj] = float(row["Mass"])
-        return masses
+            heights[subj] = float(row["Height"]) if "Height" in info.columns else 0.0
+        return masses, heights
+
+    def _moment_arm_scale(self, subject: str) -> float:
+        """Anthropometric scale on the moment arm: the lever is a length, so it
+        scales ~linearly with stature. Centred on the cohort mean (1.0).
+        REF: Achilles moment arm correlates with body height / segment length."""
+        h = self._height_by_subject.get(subject, 0.0)
+        if h <= 0 or self._mean_height_cm <= 0:
+            return 1.0
+        return h / self._mean_height_cm
 
     # -- discovery ----------------------------------------------------------
     def _processed_files(self) -> list[Path]:
@@ -126,6 +142,8 @@ class FukuchiDataSource(GaitDataSource):
                         ankle_moment_nm_per_kg=moment,
                         vgrf_n_per_kg=vgrf,
                         source="fukuchi",
+                        moment_arm_scale=self._moment_arm_scale(subject),
+                        task="run",
                     )
 
     @staticmethod

@@ -1,6 +1,8 @@
 # data is downloaded by scripts/download_data.py, not committed
 data/raw/
 data/opensim/
+data/raw/wbds/
+*.zip
 artifacts/
 
 # python

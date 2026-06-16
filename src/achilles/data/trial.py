@@ -31,12 +31,23 @@ class GaitTrial:
     gait_phase: np.ndarray
     ankle_angle_deg: np.ndarray
     ankle_moment_nm_per_kg: np.ndarray
-    vgrf_n_per_kg: np.ndarray
+    # Vertical GRF is optional: Stage 1 (force/stress/strain) does not need it,
+    # and some sources (the walking set) provide normalised joint moments but
+    # not normalised GRF. The PINN (Stage 2) uses only trials that have it.
+    vgrf_n_per_kg: np.ndarray | None = None
     source: str = "unknown"  # provenance tag, e.g. "fukuchi" or "synthetic"
+    # Subject-specific scale on the Achilles moment arm (a length, so it scales
+    # with body size). 1.0 = cohort-average build; set from height by the data
+    # source. Lets each athlete have their own lever instead of one fixed value.
+    moment_arm_scale: float = 1.0
+    task: str = "run"   # "run" or "walk"
 
     def __post_init__(self) -> None:
         n = len(self.gait_phase)
-        for name in ("ankle_angle_deg", "ankle_moment_nm_per_kg", "vgrf_n_per_kg"):
+        names = ["ankle_angle_deg", "ankle_moment_nm_per_kg"]
+        if self.vgrf_n_per_kg is not None:
+            names.append("vgrf_n_per_kg")
+        for name in names:
             arr = getattr(self, name)
             if len(arr) != n:
                 raise ValueError(f"{name} length {len(arr)} != gait_phase length {n}")
@@ -44,6 +55,10 @@ class GaitTrial:
             raise ValueError(f"side must be 'R' or 'L', got {self.side!r}")
         if self.body_mass_kg <= 0:
             raise ValueError(f"body_mass_kg must be > 0, got {self.body_mass_kg}")
+
+    @property
+    def has_grf(self) -> bool:
+        return self.vgrf_n_per_kg is not None
 
     # Absolute (de-normalised) signals -------------------------------------
     @property
@@ -53,13 +68,13 @@ class GaitTrial:
 
     @property
     def vgrf_n(self) -> np.ndarray:
-        """Vertical GRF in newtons."""
-        return self.vgrf_n_per_kg * self.body_mass_kg
+        """Vertical GRF in newtons (None if this source has no GRF)."""
+        return None if self.vgrf_n_per_kg is None else self.vgrf_n_per_kg * self.body_mass_kg
 
     @property
     def vgrf_bw(self) -> np.ndarray:
-        """Vertical GRF in body weights (dimensionless)."""
-        return self.vgrf_n_per_kg / GRAVITY_M_S2
+        """Vertical GRF in body weights (None if this source has no GRF)."""
+        return None if self.vgrf_n_per_kg is None else self.vgrf_n_per_kg / GRAVITY_M_S2
 
     @property
     def body_weight_n(self) -> float:

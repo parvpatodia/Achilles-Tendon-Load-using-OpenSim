@@ -15,6 +15,7 @@ dependencies = [
     "scikit-learn",
     "torch",
     "tqdm",
+    "openpyxl",
 ]
 
 [tool.setuptools.packages.find]

@@ -51,6 +51,11 @@ def _stance_position(vgrf_bw: np.ndarray) -> np.ndarray:
 
 def build_features(trial: GaitTrial) -> np.ndarray:
     """Return a (N_FEATURES, n_samples) array of wearable-proxy channels."""
+    if not trial.has_grf:
+        raise ValueError(
+            f"trial {trial.trial_id} has no vertical GRF; the surrogate needs a "
+            "wearable GRF input. Walking trials are Stage-1 only."
+        )
     vgrf_bw = trial.vgrf_bw
     angle = trial.ankle_angle_deg
     pos = _stance_position(vgrf_bw)

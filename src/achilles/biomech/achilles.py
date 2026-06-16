@@ -95,7 +95,8 @@ class AchillesLoadModel:
         self.tendon = tendon
 
     def compute(self, trial: GaitTrial) -> AchillesLoadResult:
-        r = self.moment_arm.moment_arm_m(trial.ankle_angle_deg)  # (m)
+        # angle-dependent shape x subject-specific anthropometric scale
+        r = self.moment_arm.moment_arm_m(trial.ankle_angle_deg) * trial.moment_arm_scale
 
         # Only the plantarflexion (positive) moment loads the Achilles.
         plantarflexion_moment_nm = np.clip(trial.ankle_moment_nm, 0.0, None)

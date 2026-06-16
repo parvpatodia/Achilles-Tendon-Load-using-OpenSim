@@ -232,6 +232,91 @@ def plot_stage3_opensim(phase, analytical_bw, opensim_bw, out_path: Path,
     return out_path
 
 
+# --- Walking vs running continuum ------------------------------------------
+def plot_walking_vs_running(walk_results, run_results, out_path: Path) -> Path:
+    """Peak Achilles force vs gait speed, from slow walking to running, showing
+    the same pipeline spans the whole gait spectrum (incl. her walking cohort)."""
+    apply_house_style()
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+
+    def _xy(results):
+        x = np.array([r.trial.speed_ms for r in results])
+        y = np.array([r.peak_force_bw for r in results])
+        return x, y
+
+    def _binned(x, y, edges):
+        cx, cy, cs = [], [], []
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            mask = (x >= lo) & (x < hi)
+            if mask.sum() >= 3:
+                cx.append((lo + hi) / 2); cy.append(y[mask].mean()); cs.append(y[mask].std())
+        return np.array(cx), np.array(cy), np.array(cs)
+
+    wx, wy = _xy(walk_results)
+    rx, ry = _xy(run_results)
+    ax.scatter(wx, wy, s=10, alpha=0.20, color=ACCENT, edgecolors="none")
+    ax.scatter(rx, ry, s=14, alpha=0.30, color=ACCENT2, edgecolors="none")
+
+    bx, by, bs = _binned(wx, wy, np.arange(0.3, 2.4, 0.3))
+    ax.errorbar(bx, by, yerr=bs, fmt="-o", color=ACCENT, lw=2.2, ms=5, capsize=3,
+                label=f"walking (n={len(walk_results)}, her cohort's mode)")
+    rbx, rby, rbs = _binned(rx, ry, np.array([2.25, 3.0, 4.0, 4.75]))
+    ax.errorbar(rbx, rby, yerr=rbs, fmt="-s", color=ACCENT2, lw=2.2, ms=5, capsize=3,
+                label=f"running (n={len(run_results)})")
+
+    ax.axvspan(2.0, 2.5, color=MUTED, alpha=0.10)
+    ax.text(2.25, ax.get_ylim()[1] * 0.12, "walk→run\ntransition", color=MUTED,
+            fontsize=8, ha="center")
+    ax.set_title("One pipeline across the gait spectrum: Achilles load vs. speed",
+                 fontweight="bold")
+    ax.set_xlabel("Gait speed (m/s)")
+    ax.set_ylabel("Peak Achilles tendon force (body weights)")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
+# --- Moment-arm sensitivity ------------------------------------------------
+def plot_moment_arm_sensitivity(sens, out_path: Path, default_cm: float = 5.2,
+                                opensim_cm: float = 4.44) -> Path:
+    """Peak Achilles force and stress vs. the assumed moment arm, with the
+    literature range, our default, and the OpenSim value marked."""
+    apply_house_style()
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(sens.arms_cm, sens.peak_force_bw_mean, "-o", color=ACCENT, lw=2.4,
+            ms=4, label="peak Achilles force")
+    ax.fill_between(sens.arms_cm,
+                    sens.peak_force_bw_mean - sens.peak_force_bw_sd,
+                    sens.peak_force_bw_mean + sens.peak_force_bw_sd,
+                    color=ACCENT, alpha=0.12)
+    ax.set_xlabel("Assumed Achilles moment arm (cm)")
+    ax.set_ylabel("Peak Achilles force (body weights)", color=ACCENT)
+    ax.tick_params(axis="y", labelcolor=ACCENT)
+
+    ax2 = ax.twinx()
+    ax2.plot(sens.arms_cm, sens.peak_stress_mpa_mean, "-s", color=ACCENT2, lw=2.0,
+             ms=4, label="peak stress")
+    ax2.set_ylabel("Peak tendon stress (MPa)", color=ACCENT2)
+    ax2.tick_params(axis="y", labelcolor=ACCENT2)
+    ax2.grid(False)
+
+    ax.axvline(default_cm, color=INK, ls="--", lw=1.2)
+    ax.text(default_cm, ax.get_ylim()[1] * 0.96, " our model (5.2 cm mean)",
+            color=INK, fontsize=9)
+    ax.axvline(opensim_cm, color=GOOD, ls=":", lw=1.4)
+    ax.text(opensim_cm, ax.get_ylim()[1] * 0.86, "OpenSim\n(4.4 cm mean) ", color=GOOD,
+            fontsize=9, ha="right")
+
+    ax.set_title("Moment-arm sensitivity: the dominant assumption, quantified",
+                 fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Pipeline diagram for the README --------------------------------------
 def plot_pipeline_diagram(out_path: Path) -> Path:
     apply_house_style()

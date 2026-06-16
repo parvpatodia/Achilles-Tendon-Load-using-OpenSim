@@ -68,3 +68,21 @@ def test_angle_dependent_moment_arm_clamped():
 def test_force_nonnegative_everywhere():
     res = AchillesLoadModel().compute(_toy_trial())
     assert np.all(res.force_n >= 0)
+
+
+def test_subject_moment_arm_scale_inverse():
+    """A larger moment-arm scale (bigger athlete) must lower the tendon force."""
+    from dataclasses import replace
+    base = _toy_trial()
+    big = replace(base, moment_arm_scale=1.2)
+    small = replace(base, moment_arm_scale=0.8)
+    m = AchillesLoadModel(moment_arm=ConstantMomentArm(0.05))
+    assert m.compute(big).peak_force_n < m.compute(small).peak_force_n
+
+
+def test_moment_arm_sensitivity_monotonic():
+    """Peak force must fall as the assumed moment arm grows (force = M / arm)."""
+    from achilles.biomech.sensitivity import moment_arm_sensitivity
+    sens = moment_arm_sensitivity([_toy_trial()], arms_cm=np.array([4.0, 5.0, 6.0]))
+    assert sens.peak_force_bw_mean[0] > sens.peak_force_bw_mean[-1]
+    assert sens.force_swing_pct() > 0
