@@ -27,6 +27,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default="fukuchi")
     ap.add_argument("--epochs", type=int, default=200)
+    ap.add_argument("--k", type=int, default=5)
     args = ap.parse_args()
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,7 +36,7 @@ def main() -> None:
 
     _run("run_stage1_analytical.py", ["--source", args.source])
     _run("run_stage2_pinn.py", ["--source", args.source, "--epochs", str(args.epochs),
-                                "--no-ablation"])
+                                "--k", str(args.k)])
     _run("run_stage4_product.py", ["--source", args.source])
     _run("run_stage3_opensim.py", [])  # bonus; skips cleanly if unavailable
 

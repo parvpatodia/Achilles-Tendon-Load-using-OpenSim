@@ -88,8 +88,8 @@ class AsymmetryAnalyzer:
     """
 
     def __init__(self, left: AchillesLoadResult, right: AchillesLoadResult, seed: int = 2):
-        self.left_base = left.loading_impulse_ns()
-        self.right_base = right.loading_impulse_ns()
+        self.left_base = left.cyclic_load_index()
+        self.right_base = right.cyclic_load_index()
         self.rng = np.random.default_rng(seed)
 
     def analyze(self, plan: SessionPlan, drift_pct_per_session: float = 1.5) -> AsymmetryResult:

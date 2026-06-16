@@ -51,10 +51,12 @@ def test_dorsiflexion_moment_does_not_load_tendon():
     assert res.peak_force_n == pytest.approx(0.0, abs=1e-9)
 
 
-def test_stress_and_strain_consistent():
-    res = AchillesLoadModel(moment_arm=ConstantMomentArm(0.05)).compute(_toy_trial())
+def test_stress_consistent_and_linear_strain():
+    from achilles.biomech.tendon import LinearTendon
+    res = AchillesLoadModel(moment_arm=ConstantMomentArm(0.05),
+                            material=LinearTendon()).compute(_toy_trial())
     np.testing.assert_allclose(res.stress_pa, res.force_n / TENDON.csa_m2, rtol=1e-9)
-    np.testing.assert_allclose(res.strain, res.stress_pa / TENDON.modulus_pa, rtol=1e-9)
+    np.testing.assert_allclose(res.strain, res.stress_pa / TENDON.linear_modulus_pa, rtol=1e-9)
 
 
 def test_angle_dependent_moment_arm_clamped():

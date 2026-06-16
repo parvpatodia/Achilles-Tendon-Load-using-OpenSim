@@ -66,7 +66,7 @@ def main() -> None:
           f"ends {asym.asi_pct[-1]:+.1f}%, peak |ASI| {asym.peak_abs_asi:.1f}%")
 
     # accumulation (use mean of the two limbs as the athlete's per-stride seed)
-    base = 0.5 * (left_res.loading_impulse_ns() + right_res.loading_impulse_ns())
+    base = 0.5 * (left_res.cyclic_load_index() + right_res.cyclic_load_index())
     acc = AccumulationTimeline().compute(base, plan)
     flagged = np.where(acc.acwr > 1.5)[0]
     print(f"accumulation: cumulative load {acc.cumulative[-1]:.0f} (relative units); "

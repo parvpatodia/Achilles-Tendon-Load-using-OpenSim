@@ -31,10 +31,8 @@ class TrialSample:
 class AchillesSequenceDataset(Dataset):
     """Wraps a list of TrialSample, applying input standardisation."""
 
-    def __init__(self, samples: list[TrialSample], feat_mean=None, feat_std=None,
-                 noise_std: float = 0.0):
+    def __init__(self, samples: list[TrialSample], feat_mean=None, feat_std=None):
         self.samples = samples
-        self.noise_std = float(noise_std)  # simulated sensor noise (std-units)
         if feat_mean is None or feat_std is None:
             stacked = np.stack([s.x for s in samples])          # (N, C, T)
             feat_mean = stacked.mean(axis=(0, 2), keepdims=True)[0]  # (C,1)
@@ -48,10 +46,6 @@ class AchillesSequenceDataset(Dataset):
     def __getitem__(self, i: int):
         s = self.samples[i]
         x = (s.x - self.feat_mean) / self.feat_std
-        if self.noise_std > 0:
-            # deterministic per-item sensor noise (reproducible eval)
-            rng = np.random.default_rng(1000 + i)
-            x = x + rng.normal(0, self.noise_std, x.shape).astype(np.float32)
         return {
             "x": torch.from_numpy(x.astype(np.float32)),
             "y": torch.from_numpy(s.y_bw.astype(np.float32)),

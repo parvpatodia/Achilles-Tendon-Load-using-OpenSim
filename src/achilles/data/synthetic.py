@@ -51,14 +51,8 @@ class SyntheticGaitSource(GaitDataSource):
         mom = peak_mom * asym * np.sin(np.pi * np.clip((s - 0.05) / 0.95, 0, 1)) ** 1.4
         mom[~in_stance] = 0.0
 
-        # Ankle angle (deg, + dorsiflexion): dorsiflex through stance to ~20 deg,
-        # plantarflex at toe-off to ~-25 deg, recover during swing.
-        angle = np.where(
-            in_stance,
-            22.0 * np.sin(np.pi * s) - 8.0 * (s ** 4) * 30.0 / 30.0,
-            np.nan,
-        )
-        # swing: smooth return from toe-off plantarflexion to neutral
+        # Ankle angle (deg, + dorsiflexion): dorsiflexes through stance to ~20 deg,
+        # plantarflexes at toe-off to ~-25 deg, recovers to neutral during swing.
         toeoff_val = -25.0
         swing_phase = (phase - stance_frac) / (1 - stance_frac)
         swing = toeoff_val * (1 - swing_phase) + 5.0 * np.sin(np.pi * swing_phase)

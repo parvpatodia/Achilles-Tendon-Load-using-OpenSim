@@ -32,15 +32,19 @@ class TendonProperties:
     # REF: Magnusson & Kjaer 2003; Kongsgaard et al. 2005.
     csa_m2: float = 60e-6  # 60 mm^2
 
-    # Linear-region (high-strain) elastic modulus ~1-1.5 GPa.
-    # NOTE: real tendon has a non-linear "toe" region below ~2% strain; this
-    # linear modulus over-stiffens the low-load regime. Used only for a
-    # first-order strain estimate. REF: Wren et al. 2001; LaCroix et al. 2013.
-    modulus_pa: float = 1.0e9  # 1 GPa
+    # Linear-region (high-strain) elastic modulus ~1.0-1.5 GPa.
+    # REF: Wren et al. 2001; Maganaris & Paul 2002; LaCroix et al. 2013.
+    linear_modulus_pa: float = 1.2e9  # 1.2 GPa
 
-    # Ultimate tensile stress ~50-100 MPa. We use 100 MPa as the failure line.
-    # REF: Wren et al. 2001 (ultimate stress ~~ 100 MPa).
+    # Tendon is non-linear: a compliant "toe" region (crimp straightening) below
+    # ~2% strain, then a stiff linear region. The toe strain marks that
+    # transition. REF: LaCroix et al. 2013; Maganaris & Paul 2002.
+    toe_strain: float = 0.02  # 2%
+
+    # Ultimate tensile stress ~50-100 MPa; failure strain ~8-10%.
+    # REF: Wren et al. 2001 (ultimate stress ~~ 100 MPa, rupture strain ~8%).
     ultimate_stress_pa: float = 100e6  # 100 MPa
+    failure_strain: float = 0.08  # 8%
 
     # Typical operating-stress upper bound during running, for the reference band.
     operating_stress_pa: float = 70e6  # 70 MPa

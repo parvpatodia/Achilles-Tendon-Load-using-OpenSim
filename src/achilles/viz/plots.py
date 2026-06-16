@@ -28,10 +28,12 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
     """Achilles force (BW) and stress over the gait cycle, by running speed,
     with the tendon failure-stress reference lines."""
     apply_house_style()
+    from achilles.biomech.tendon import ToeLinearTendon
     phase = results[0].trial.gait_phase
     speeds = sorted({r.trial.speed_ms for r in results})
+    tendon = results[0].tendon
 
-    fig, (ax_f, ax_s) = plt.subplots(1, 2, figsize=(12, 4.6))
+    fig, (ax_f, ax_s, ax_m) = plt.subplots(1, 3, figsize=(15, 4.6))
 
     for sp in speeds:
         rs = [r for r in results if r.trial.speed_ms == sp]
@@ -44,7 +46,7 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
             ax.plot(phase, mean, color=c, lw=2.2, label=f"{sp:g} m/s (n={len(rs)})")
             ax.fill_between(phase, mean - sd, mean + sd, color=c, alpha=0.15)
 
-    ax_f.set_title("Achilles tendon force across the stride")
+    ax_f.set_title("Tendon force across the stride")
     ax_f.set_xlabel("Gait cycle (%)")
     ax_f.set_ylabel("Tendon force (body weights)")
     ax_f.legend(title="Running speed")
@@ -57,11 +59,33 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
     ax_s.text(2, ult - 5, f"ultimate stress ~{ult:.0f} MPa", color=WARN, fontsize=9, va="top")
     ax_s.axhspan(op, ult, color=WARN, alpha=0.06)
     ax_s.text(2, op + 1, f"operating ceiling ~{op:.0f} MPa", color=MUTED, fontsize=9)
-    ax_s.set_title("Achilles tendon stress vs. failure margin")
+    ax_s.set_title("Tendon stress vs. failure margin")
     ax_s.set_xlabel("Gait cycle (%)")
     ax_s.set_ylabel("Tendon stress (MPa)")
     ax_s.set_xlim(0, 100)
     ax_s.set_ylim(0, ult * 1.1)
+
+    # third panel: where running sits on the tendon's stress-strain curve
+    mat = ToeLinearTendon(tendon)
+    eps = np.linspace(0, tendon.failure_strain * 1.15, 200)
+    sigma = mat.stress(eps) / 1e6
+    ax_m.plot(eps * 100, sigma, color=INK, lw=2.4, zorder=3, label="tendon material law")
+    ax_m.axvspan(0, tendon.toe_strain * 100, color=ACCENT, alpha=0.10)
+    ax_m.text(tendon.toe_strain * 50, ult * 0.40, "toe\nregion", color=ACCENT,
+              fontsize=8, ha="center", va="center")
+    # actual running operating points (peak per trial, to keep the cloud readable)
+    peak_eps = np.array([r.peak_strain_pct for r in results])
+    peak_sig = np.array([np.max(r.stress_pa) / 1e6 for r in results])
+    ax_m.scatter(peak_eps, peak_sig, s=22, alpha=0.45, color=ACCENT2,
+                 edgecolors="none", zorder=2, label="per-stride peak (running)")
+    ax_m.scatter([tendon.failure_strain * 100], [ult], s=90, color=WARN, zorder=4,
+                 marker="X", label="rupture (~8%, ~100 MPa)")
+    ax_m.set_title("Tendon constitutive curve (toe + linear)")
+    ax_m.set_xlabel("Tendon strain (%)")
+    ax_m.set_ylabel("Tendon stress (MPa)")
+    ax_m.set_xlim(0, tendon.failure_strain * 115)
+    ax_m.set_ylim(0, ult * 1.1)
+    ax_m.legend(fontsize=8, loc="lower right")
 
     fig.suptitle(f"Stage 1 - analytical Achilles load from real running data{title_suffix}",
                  fontsize=14, fontweight="bold")
@@ -73,7 +97,7 @@ def plot_stage1_achilles(results, out_path: Path, title_suffix: str = "") -> Pat
 
 # --- Stage 2 ---------------------------------------------------------------
 def plot_stage2_pinn(phase, true_curves, pred_curves, r2, rmse_bw,
-                     out_path: Path, n_show: int = 4) -> Path:
+                     out_path: Path, n_show: int = 4, subtitle: str = "") -> Path:
     """Predicted vs true Achilles force on held-out subjects: overlay + scatter."""
     apply_house_style()
     fig, (ax_o, ax_s) = plt.subplots(1, 2, figsize=(12, 4.6))
@@ -103,9 +127,12 @@ def plot_stage2_pinn(phase, true_curves, pred_curves, r2, rmse_bw,
               transform=ax_s.transAxes, fontsize=11, va="top",
               bbox=dict(boxstyle="round", fc="white", ec=MUTED))
 
-    fig.suptitle("Stage 2 - physics-informed surrogate (held-out subjects)",
-                 fontsize=14, fontweight="bold")
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    title = "Stage 2 - physics-guided surrogate from a wearable-style input"
+    if subtitle:
+        fig.suptitle(title + "\n" + subtitle, fontsize=13, fontweight="bold")
+    else:
+        fig.suptitle(title, fontsize=14, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.93 if subtitle else 0.95))
     fig.savefig(out_path)
     plt.close(fig)
     return out_path
@@ -149,31 +176,34 @@ def plot_stage4_asymmetry(sessions, asi_pct, left_load, right_load,
 
 # --- Stage 4: accumulation -------------------------------------------------
 def plot_stage4_accumulation(sessions, per_session, cumulative, acwr,
-                             out_path: Path, watch_low=0.8, watch_high=1.5) -> Path:
+                             out_path: Path, sweet_low=0.8, sweet_high=1.3,
+                             danger=1.5) -> Path:
     apply_house_style()
     fig, (ax_c, ax_r) = plt.subplots(1, 2, figsize=(12, 4.6))
 
     ax_c.bar(sessions, per_session, color=ACCENT, alpha=0.55, label="per-session load")
     ax_c2 = ax_c.twinx()
     ax_c2.plot(sessions, cumulative, "-o", color=INK, lw=2, ms=3, label="cumulative")
-    ax_c2.set_ylabel("Cumulative tissue load (relative)")
+    ax_c2.set_ylabel("Cumulative loading exposure (relative)")
     ax_c2.grid(False)
-    ax_c.set_title("Tissue-aware load accumulation")
+    ax_c.set_title("Cumulative tendon loading exposure")
     ax_c.set_xlabel("Session")
     ax_c.set_ylabel("Per-session load (relative)")
 
-    ax_r.axhspan(watch_low, watch_high, color=GOOD, alpha=0.12)
+    # Gabbett 2016: ~0.8-1.3 sweet spot, >1.5 elevated injury risk.
+    ax_r.axhspan(sweet_low, sweet_high, color=GOOD, alpha=0.12)
     ax_r.plot(sessions, acwr, "-o", color=INK, lw=2, ms=4)
-    ax_r.axhline(watch_high, color=WARN, ls="--", lw=1.2)
-    ax_r.text(sessions[0], watch_high + 0.03, f"elevated-risk zone (>{watch_high})",
+    ax_r.axhline(danger, color=WARN, ls="--", lw=1.3)
+    ax_r.text(sessions[0], danger + 0.03, f"elevated-risk zone (>{danger})",
               color=WARN, fontsize=9)
-    ax_r.axhline(watch_low, color=MUTED, ls=":", lw=1)
-    ax_r.set_title("Acute:chronic load ratio (ACWR-style)")
+    ax_r.text(sessions[len(sessions) // 2], (sweet_low + sweet_high) / 2,
+              "sweet spot 0.8-1.3", color=GOOD, fontsize=9, ha="center", va="center")
+    ax_r.set_title("Acute:chronic workload ratio (ACWR)")
     ax_r.set_xlabel("Session")
     ax_r.set_ylabel("Acute / chronic load")
     ax_r.set_ylim(0, max(2.0, float(np.nanmax(acwr)) * 1.1))
 
-    fig.suptitle("Stage 4 - simulated multi-session load timeline (risk indication, not prediction)",
+    fig.suptitle("Stage 4 - simulated load timeline: a fatigue-style risk indicator (not a prediction)",
                  fontsize=13, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(out_path)

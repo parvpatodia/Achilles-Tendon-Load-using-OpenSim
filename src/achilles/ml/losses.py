@@ -59,7 +59,8 @@ class PhysicsInformedLoss:
 
         total = (self.w.data * l_data + self.w.non_neg * l_nonneg
                  + self.w.moment * l_moment + self.w.smooth * l_smooth)
-        parts = {"data": float(l_data), "non_neg": float(l_nonneg),
-                 "moment": float(l_moment), "smooth": float(l_smooth),
-                 "total": float(total)}
+        # detach for logging only; `total` keeps its graph for backprop
+        parts = {"data": l_data.item(), "non_neg": l_nonneg.item(),
+                 "moment": l_moment.item(), "smooth": l_smooth.item(),
+                 "total": total.item()}
         return total, parts

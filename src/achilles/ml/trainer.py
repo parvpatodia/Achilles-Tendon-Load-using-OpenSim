@@ -47,7 +47,10 @@ class Trainer:
         self.loss_fn = PhysicsInformedLoss(self.cfg.weights)
 
     def train(self, verbose: bool = True) -> list[dict]:
-        loader = DataLoader(self.train_ds, batch_size=self.cfg.batch_size, shuffle=True)
+        # drop_last avoids a size-1 final batch crashing BatchNorm; with shuffle
+        # a different handful of trials is dropped each epoch, so nothing is lost.
+        loader = DataLoader(self.train_ds, batch_size=self.cfg.batch_size,
+                            shuffle=True, drop_last=len(self.train_ds) > self.cfg.batch_size)
         opt = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr,
                                weight_decay=self.cfg.weight_decay)
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, self.cfg.epochs)

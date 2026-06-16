@@ -1,15 +1,21 @@
 # Plantar Load → Achilles Tendon Load
 
-**A feasibility demo: taking a wearable plantar-load signal one step inward, to internal Achilles tendon load.**
+**Your insole measures load *under* the foot. This estimates the load *inside* the tendon — the quantity that actually drives injury.**
 
-This takes the kind of signal a self-powered insole produces (plantar load + motion) and estimates the *internal* load the Achilles tendon carries during running — tendon force, stress, strain, left/right asymmetry, and a longitudinal load index — on real running data, with an honest account of where it would and would not hold up.
+A feasibility demo extending Mirai Tech's self-powered insole work one step inward: from plantar load to internal Achilles tendon force, stress, and strain, on real running data, with the tendon treated as a material and every assumption checked.
 
-It is built as a continuation of Mirai Tech's published work, one step further into the body:
+---
 
-- **Kanabekova et al. 2026** — *Sensors* 26(10):3191. Self-powered TENG insole, plantar pressure, gait asymmetry, rehabilitation cohort.
-- **Issabek et al. 2025** — *Advanced Materials Technologies* 10(6):2401282. TENG insole + ML for flatfoot.
+## Why this is a continuation of your work
 
-Those papers measure load *at the foot–ground interface*. This demo asks: can that same signal estimate the load *inside the tendon* — the quantity that actually governs injury? The answer here is a qualified yes, and the qualifications are the point.
+| Your published work | This demo |
+|---|---|
+| TENG insole measures **external** plantar load (Kanabekova 2026; Issabek 2025) | estimates the **internal** tendon load that load produces |
+| ML = **classification** (flatfoot, 82% with Random Forest) and asymmetry **signatures** | ML = **regression** of the full internal-load waveform |
+| stress/strain on the **sensor material** (TENG: ~linear to 10 V at 20 N) | stress/strain in the **tissue material** (tendon constitutive curve) |
+| walking, rehab/trauma cohort | running (highest, best-characterised Achilles loads) — same pipeline applies to walking |
+
+Your sensor is a material that turns mechanical stress into charge. The Achilles is a material that turns load into stress and strain. This connects the two: **from the stress on your sensor to the stress in the tissue.**
 
 ---
 
@@ -17,113 +23,70 @@ Those papers measure load *at the foot–ground interface*. This demo asks: can 
 
 ![pipeline](figures/fig0_pipeline.png)
 
-```
-plantar load + motion
-  → ground reaction force (GRF)
-  → ankle plantarflexion moment        (inverse dynamics)
-  → Achilles tendon force   = moment / moment arm
-  → tendon stress = force / CSA,  strain = stress / modulus
-  → relative, per-athlete, tissue-aware load index (asymmetry + accumulation)
-```
+`plantar load + motion → ground reaction force → ankle moment (inverse dynamics) → tendon force = moment ÷ moment-arm → stress & strain → relative load index`
+
+Data: **Fukuchi et al. 2017** treadmill-running dataset (PeerJ; 31 subjects, both legs, 2.5/3.5/4.5 m/s, 186 trials after quality control).
 
 ---
 
-## What it produces (on real data)
+## The four results
 
-Data: **Fukuchi et al. 2017** treadmill running dataset (PeerJ; figshare `10.6084/m9.figshare.4543435`) — 31 subjects with bilateral 3D kinematics and kinetics at 2.5 / 3.5 / 4.5 m/s (186 limb-trials after quality control).
-
-### Stage 1 — Analytical Achilles load
+### 1. Tendon load from real data — the numbers are right
 ![stage1](figures/fig1_stage1_achilles_load.png)
 
-| quantity | result | literature |
-|---|---|---|
-| peak Achilles force | **5.1 BW** mean (2.4–7.2 across subjects/speeds) | ~4–7 BW running |
-| peak tendon stress | **59 MPa** mean (up to 92) | ultimate ~100 MPa |
-| safety factor to failure stress | **~1.7×** mean | low margin, as expected |
-| speed trend (peak force) | 4.79 → 5.19 → 5.38 BW at 2.5 → 3.5 → 4.5 m/s | rises with speed ✓ |
+Force across each stride, the resulting stress against the tendon's failure limit, and **where that lands on the tendon's own stress–strain curve** (a real toe-then-linear material law, not a linear spring).
 
-The numbers land where the biomechanics literature says they should, and running loads the tendon to roughly half its ultimate stress — the thin safety margin that makes the Achilles a common running injury.
+- Peak Achilles force **5.1 body-weights** on average (2.4–7.2), and it **rises with running speed** — both match the biomechanics literature (~4–7 BW).
+- Peak stress averages **~60 MPa** and reaches **~90 MPa** in the highest-load runners, against a ~100 MPa failure stress — about **half the tendon's strength on an average stride (~1.7× safety factor)**, and close to the limit at the high end. That thin margin is *why* the Achilles is a top running injury.
 
-### Stage 2 — Physics-informed surrogate (held-out subjects)
+### 2. A wearable signal can recover that internal load
 ![stage2](figures/fig2_stage2_pinn.png)
 
-A small temporal CNN (16k parameters) predicts the Achilles force waveform from a **wearable-style input** — vertical GRF + ankle angle + four "insole-zone" channels mimicking Mirai's Big-Toe / Forefoot / Arch / Heel layout — and is scored on **held-out subjects it never saw in training** (subject-wise split, the honest generalisation test).
+A small neural network (16k parameters) predicts the internal tendon-load curve from a **wearable-style input only** — vertical load + ankle angle + four "insole-zone" channels matching your Big-Toe / Forefoot / Arch / Heel layout. No lab equipment at inference.
 
-- **Held-out R² = 0.984, RMSE = 0.19 BW** (8 unseen subjects).
-- Robust under stress: with only **3 training subjects + simulated sensor noise**, held-out R² still ≈ 0.91.
-- Physics-loss terms (non-negativity, moment-consistency `F·r = M`, bounded loading rate) are documented and enforced. Honestly: on this clean lab data they do **not** measurably change held-out accuracy — the mapping is already learnable from the data term. Their role is as guardrails that keep the output physically valid; their accuracy benefit would show on messier real-insole signals, which I'd test next.
+- Tested with **5-fold cross-validation where every subject is held out once** (the honest test on people it never saw): **R² = 0.983 ± 0.004**, error 0.21 BW.
+- It is *physics-guided*: the loss enforces tendon force ≥ 0, the moment relation `force × arm = moment`, and a bounded loading rate. Honestly, on this clean lab data those constraints don't change accuracy (we tested — the effect is within fold-to-fold noise); they are physical-validity guardrails that matter more on noisy real-insole data.
 
-### Stage 3 (bonus) — OpenSim cross-check
+### 3. Cross-checked against a validated model (OpenSim)
 ![stage3](figures/fig5_stage3_opensim_xcheck.png)
 
-The biggest assumption in Stage 1 is the Achilles moment arm. I cross-checked it against a **validated OpenSim musculoskeletal model** (Gait2392): OpenSim's engine computes the moment arm of medial/lateral gastrocnemius and soleus (the triceps surae, which share the Achilles tendon) across the ankle's range of motion.
+The biggest assumption is the tendon's moment arm. A validated OpenSim musculoskeletal model (its real gastrocnemius + soleus geometry) gives a moment arm of **4.4–4.8 cm with the same angle-dependence I assumed (5.2 cm)**. The two force estimates agree in shape and sit within ~16% — and that gap is *entirely* the moment arm, which pinpoints the one thing worth measuring per athlete.
 
-- OpenSim moment arm: **4.4–4.8 cm**, decreasing with dorsiflexion — the **same angle dependence** my analytical model assumed (5.0–5.2 cm).
-- Resulting Achilles force agrees in shape; magnitude within **~16%**, and that gap is *entirely* the moment-arm difference. This pinpoints the moment arm as the parameter most worth measuring per-athlete.
-
-### Stage 4 — The product view
+### 4. The product view: relative, per-athlete, over time
 ![asymmetry](figures/fig3_stage4_asymmetry.png)
 ![accumulation](figures/fig4_stage4_accumulation.png)
 
-The output is deliberately a **relative, tissue-aware, longitudinal load index**, not an absolute stress number:
+The output is a **relative, longitudinal load index**, not an absolute stress number:
 
-- **Asymmetry** — left vs right Achilles loading over sessions, echoing the asymmetry finding in Kanabekova 2026. The simulated block shows a developing left-dominant imbalance crossing the ±10% watch threshold.
-- **Accumulation** — cumulative tissue load and an acute:chronic workload ratio (ACWR; Gabbett 2016) with a watch band. A deliberate overload session pushes ACWR past 1.5 into the elevated-risk zone, then it recovers.
+- **Left/right asymmetry** over sessions (echoing your asymmetry finding) — here a developing imbalance crosses a ±10% watch line.
+- **Cumulative loading + an acute:chronic workload ratio** (a fatigue-style indicator): an overload session pushes it past the 1.5 risk threshold, then it recovers.
 
-This is framed as **risk indication, not prediction** — exactly the kind of continuous, longitudinal signal a self-powered insole is uniquely positioned to capture.
+This is **risk indication, not prediction** — exactly the continuous signal a self-powered insole is built to capture.
 
 ---
 
-## What this is NOT (read this)
+## Honest limitations (the important part)
 
-This is a **feasibility proof of the method**, not a validated product.
+- **Proxy data.** Public running data stands in for your insole; the four zone channels are *derived* from total load, not measured pressure.
+- **Relative, not absolute.** Tendon area, stiffness, and moment arm are population averages; absolute stress is indicative. The product index is deliberately relative.
+- **No internal ground truth.** Tendon load is not directly measured here (it rarely is, even in labs); OpenSim is a model-vs-model cross-check, not validation.
+- **Healthy running, not your cohort.** All data is healthy treadmill running. Transfer to walking, rehab patients, and real TENG signals is unproven.
 
-- **Proxy data.** Public treadmill running data stands in for Mirai's insole; the four "insole-zone" channels are *derived* from total GRF by a documented centre-of-pressure model, not measured pressure.
-- **Analytical moment arm.** Achilles force uses an assumed moment arm (cross-checked against OpenSim, but not subject-specific MRI/ultrasound).
-- **Relative, not absolute.** Tendon CSA and modulus are population averages; absolute stress/strain are indicative. The product index is explicitly relative and per-athlete.
-- **No in-vivo ground truth.** Internal tendon load is not measured here (it rarely is, even in labs).
-- **Generalisation is subject-wise only.** The surrogate is honest about unseen *people*, but all data is healthy treadmill running; transfer to overground, clinical, or Mirai-sensor data is unproven.
-
-**What I'd validate next:** the moment arm per-athlete; the surrogate on real insole signals (where the physics priors should earn their place); and the load index against actual training-load / symptom outcomes.
+**What I'd validate next:** the moment arm per-athlete (ultrasound); the surrogate on your real insole + IMU signals; and the load index against actual training-load and symptom outcomes in your rehab cohort.
 
 ---
 
 ## Run it
 
 ```bash
-conda env create -f environment.yml      # python 3.11 + stack
-conda activate mirai-demo
+conda env create -f environment.yml && conda activate mirai-demo
 pip install -e .
-python scripts/download_data.py          # ~5 MB from figshare
-python scripts/run_all.py                # all stages + figures -> figures/
+python scripts/download_data.py     # ~5 MB
+python scripts/run_all.py           # all stages + figures
+pytest                              # 22 tests
 ```
+No download → add `--source synthetic` (clearly-labelled parametric data). No OpenSim → Stage 3 skips; the rest is unaffected.
 
-No data download? Every stage takes `--source synthetic` and runs on a clearly-labelled parametric gait model. No OpenSim? Stage 3 skips cleanly; Stages 1/2/4 are unaffected.
+**Design:** every stage depends on a small `GaitTrial` / `GaitDataSource` interface, and the moment-arm and tendon-material laws are swappable strategies — so changing the data source (synthetic → Fukuchi → one day a Mirai insole) or any assumption is a one-line change whose effect on the result is auditable.
 
-```bash
-pytest                                   # 17 tests (biomech, data QC, product, loss)
-```
-
----
-
-## Repo structure
-
-```
-src/achilles/
-  config.py            physical constants + citations (single source of truth)
-  data/                GaitTrial value object + GaitDataSource interface
-                       (FukuchiDataSource, SyntheticGaitSource, factory)
-  biomech/             MomentArmModel strategies + AchillesLoadModel (Stage 1)
-  ml/                  wearable features, subject-wise dataset, CNN, physics loss, trainer (Stage 2)
-  product/             load index, asymmetry, ACWR accumulation (Stage 4)
-  opensim_xcheck/      OpenSim moment-arm cross-check (Stage 3, optional)
-  viz/                 publication-style figures
-scripts/               download_data.py + run_stage{1..4}.py + run_all.py
-tests/                 pytest suite
-```
-
-The design point: every stage depends on the small `GaitTrial` / `GaitDataSource` interface, so swapping the data source (synthetic → Fukuchi → one day a Mirai insole export) or the moment-arm model (constant → angle-dependent → OpenSim) is a one-line change, and its effect on the result is auditable.
-
----
-
-*Built as a feasibility study extending Mirai Tech's TENG-insole work. Public running data; analytical and validated-model estimates; honest about every assumption.*
+*References: Kanabekova et al., Sensors 2026, 26(10):3191 · Issabek et al., Adv. Mater. Technol. 2025, 10(6):2401282 · Fukuchi et al., PeerJ 2017 · OpenSim Gait2392 · tendon mechanics: Wren 2001, Maganaris & Paul 2002, LaCroix 2013 · ACWR: Gabbett 2016.*
