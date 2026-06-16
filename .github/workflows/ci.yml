@@ -18,6 +18,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+          pip install pytest
       - name: Run tests
         # the suite uses synthetic/toy data and skips the optional walking tests,
         # so it needs no dataset download
