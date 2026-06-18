@@ -76,9 +76,17 @@ class FukuchiDataSource(GaitDataSource):
         return masses, heights
 
     def _moment_arm_scale(self, subject: str) -> float:
-        """Anthropometric scale on the moment arm: the lever is a length, so it
-        scales ~linearly with stature. Centred on the cohort mean (1.0).
-        REF: Achilles moment arm correlates with body height / segment length."""
+        """A WEAK first-order per-athlete moment-arm proxy (height-scaled).
+
+        Honest caveat: external anthropometry predicts the Achilles moment arm
+        poorly. Sheehan (2007) found NO height correlation in vivo, and tendon-
+        excursion estimates correlate weakly with geometry; tibial width / MRI /
+        ultrasound do better. So this height scaling is only a placeholder for
+        the per-athlete value that imaging would supply, not a validated model.
+        It is small (+/-~7%), centred on the cohort mean (1.0), and its impact is
+        bounded by the moment-arm sensitivity analysis. Set it from a measured
+        moment arm when one is available.
+        """
         h = self._height_by_subject.get(subject, 0.0)
         if h <= 0 or self._mean_height_cm <= 0:
             return 1.0

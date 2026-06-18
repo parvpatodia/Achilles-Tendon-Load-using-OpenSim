@@ -45,6 +45,17 @@ class Agreement:
     sd_diff: float
 
 
+def physical_validity(curves: list[np.ndarray]) -> dict:
+    """Check predicted force curves against the physics the constraints encode:
+    non-negativity (a tendon pulls, never pushes) and bounded loading rate
+    (smoothness). Returns the fraction of negative samples and the mean
+    roughness (mean |second difference|), so the physics claim is measured."""
+    arr = np.vstack([np.asarray(c, dtype=float) for c in curves])
+    neg_fraction = float(np.mean(arr < 0))
+    roughness = float(np.mean(np.abs(arr[:, 2:] - 2 * arr[:, 1:-1] + arr[:, :-2])))
+    return {"neg_fraction": neg_fraction, "roughness": roughness}
+
+
 def bland_altman(true: np.ndarray, pred: np.ndarray) -> Agreement:
     """Bland-Altman agreement of predicted vs reference (units of the inputs)."""
     true, pred = np.asarray(true).ravel(), np.asarray(pred).ravel()

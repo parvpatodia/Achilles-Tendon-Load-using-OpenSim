@@ -83,3 +83,25 @@ def test_physics_loss_penalises_negative_force():
     _, neg = loss(-torch.ones(2, T), batch)
     assert neg["non_neg"] > pos["non_neg"]
     assert pos["non_neg"] == 0.0
+
+
+def test_smoothness_term_penalises_roughness():
+    """The bounded-loading-rate term must score a jagged curve worse than a smooth one."""
+    T = 101
+    batch = {"y": torch.zeros(1, T), "bw": torch.tensor([700.0]),
+             "moment_arm_m": torch.full((1, T), 0.05), "moment_nm": torch.zeros(1, T)}
+    loss = PhysicsInformedLoss(LossWeights(data=0, non_neg=0, moment=0, smooth=1))
+    smooth = torch.linspace(0, 1, T).unsqueeze(0)
+    rough = smooth + 0.3 * torch.sin(torch.arange(T).float()).unsqueeze(0)  # jagged
+    _, ps = loss(smooth, batch)
+    _, pr = loss(rough, batch)
+    assert pr["smooth"] > ps["smooth"]
+
+
+def test_physical_validity_metric():
+    import numpy as np
+    from achilles.ml.evaluation import physical_validity
+    valid = [np.clip(np.sin(np.linspace(0, np.pi, 101)), 0, None)]
+    invalid = [np.linspace(-1, 1, 101)]
+    assert physical_validity(valid)["neg_fraction"] == 0.0
+    assert physical_validity(invalid)["neg_fraction"] > 0.0

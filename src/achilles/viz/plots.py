@@ -376,6 +376,77 @@ def plot_moment_arm_sensitivity(sens, out_path: Path, default_cm: float = 5.2,
     return out_path
 
 
+# --- Input degradation -----------------------------------------------------
+def plot_degradation(results: dict, out_path: Path) -> Path:
+    """For each corruption type: loaded-phase R^2 and peak error vs degradation."""
+    apply_house_style()
+    kinds = list(results)
+    fig, axes = plt.subplots(1, len(kinds), figsize=(5 * len(kinds), 4.4), squeeze=False)
+    xlabels = {"noise": "sensor noise (× channel SD)",
+               "downsample": "downsample factor (×)",
+               "quantize": "ADC resolution (bits)"}
+    for ax, kind in zip(axes[0], kinds):
+        lv = results[kind]["levels"]
+        ax.plot(lv, results[kind]["r2_loaded"], "-o", color=ACCENT, lw=2.2, ms=4)
+        ax.set_ylabel("loaded-phase R²", color=ACCENT)
+        ax.tick_params(axis="y", labelcolor=ACCENT)
+        ax.set_ylim(0, 1)
+        ax2 = ax.twinx()
+        ax2.plot(lv, results[kind]["peak_mape"], "-s", color=WARN, lw=2.0, ms=4)
+        ax2.set_ylabel("peak error (%)", color=WARN)
+        ax2.tick_params(axis="y", labelcolor=WARN)
+        ax2.grid(False)
+        if kind == "quantize":
+            ax.invert_xaxis()  # fewer bits = more degraded -> worsening to the right
+        ax.set_xlabel(xlabels.get(kind, kind))
+        ax.set_title(kind)
+    fig.suptitle("Accuracy under real-insole-grade input degradation (train clean, test corrupted)",
+                 fontsize=13, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
+# --- Uncertainty quantification --------------------------------------------
+def plot_uncertainty(uq, out_path: Path) -> Path:
+    """Example predictive band + a calibration reliability curve."""
+    apply_house_style()
+    fig, (ax_b, ax_c) = plt.subplots(1, 2, figsize=(12, 4.6))
+
+    # pick a representative held-out trial (median peak)
+    peaks = uq.true.max(axis=1)
+    i = int(np.argsort(peaks)[len(peaks) // 2])
+    ax_b.plot(uq.phase, uq.true[i], color=INK, lw=2, label="true (inverse dynamics)")
+    ax_b.plot(uq.phase, uq.mean[i], color=ACCENT2, lw=2, ls="--", label="ensemble mean")
+    ax_b.fill_between(uq.phase, uq.band_lo[i], uq.band_hi[i], color=ACCENT2, alpha=0.20,
+                      label="90% conformal band")
+    ax_b.set_title("Per-prediction uncertainty (held-out subject)")
+    ax_b.set_xlabel("Gait cycle (%)")
+    ax_b.set_ylabel("Achilles force (body weights)")
+    ax_b.set_xlim(0, 100)
+    ax_b.legend(fontsize=9)
+
+    ax_c.plot([0, 1], [0, 1], color=MUTED, ls=":", lw=1.3, label="perfect calibration")
+    ax_c.plot(uq.nominal, uq.empirical, "-o", color=ACCENT, lw=2.2, ms=6,
+              label="our intervals")
+    for n, e in zip(uq.nominal, uq.empirical):
+        ax_c.annotate(f"{e:.2f}", (n, e), textcoords="offset points", xytext=(6, -10),
+                      fontsize=8, color=INK)
+    ax_c.set_title("Calibration: do the bands mean what they say?")
+    ax_c.set_xlabel("Nominal coverage")
+    ax_c.set_ylabel("Empirical coverage (held-out)")
+    ax_c.set_xlim(0.4, 1.0); ax_c.set_ylim(0.4, 1.0)
+    ax_c.legend(fontsize=9, loc="upper left")
+
+    fig.suptitle("Uncertainty quantification (deep ensemble + calibration)",
+                 fontsize=13, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Pipeline diagram for the README --------------------------------------
 def plot_pipeline_diagram(out_path: Path) -> Path:
     apply_house_style()

@@ -113,6 +113,20 @@ We deliberately output a **relative load score over time**, not an absolute stre
 - **Left/right balance:** the load each leg carries over sessions. In the example, a growing imbalance crosses a 10% watch line — the kind of trend continuous monitoring catches early (and echoes your own asymmetry finding).
 - **Build-up over time:** total tendon loading per session, plus a **recent-vs-usual workload ratio** (a fatigue-style indicator). A spike session pushes it past the risk threshold, then it settles. Framed as a **warning sign, not a prediction.** (Note: the acute:chronic workload ratio is a useful, intuitive indicator but is statistically contested in the sports-science literature; we use it as a transparent demonstration, not a validated predictor.)
 
+### 5g. Robustness and uncertainty (the real-insole reality check)
+![degradation](figures/fig10_input_degradation.png)
+
+The R²=0.98 is on **pristine lab inputs**. The honest question is what happens on insole-grade signals, so we trained on clean data and tested on **progressively degraded inputs**:
+- **Sensor noise:** holds to ~0.2× channel-SD noise (loaded R² 0.89), then falls (0.74 at 0.4×).
+- **Temporal resolution:** robust to ~4× downsampling, collapses beyond ~8×.
+- **ADC resolution:** remarkably robust — even a **3-bit ADC keeps loaded R²=0.92**. Good news for a cheap, low-power insole.
+
+The realistic operating point lives on these curves, not at the clean-data left edge, and matched-noise retraining would recover part of the loss. This is the most important caveat, shown empirically rather than hand-waved.
+
+![uncertainty](figures/fig11_uncertainty.png)
+
+Every predicted force also carries a **confidence band**: a deep ensemble of networks gives the prediction, and **cross-fold conformal calibration** sets the band width from held-out residual quantiles (distribution-free, no calibration-on-test leakage). We verify the bands are honest — a nominal X% band should contain X% of unseen truths — and they are: **90%→89%, 95%→94%** on held-out subjects (max gap 1%). The 90% band is **±0.19 BW**. That is the direct answer to "where are your error bars, and are they calibrated?"
+
 ## 6. The figures, at a glance
 
 | File | Shows |
@@ -125,6 +139,8 @@ We deliberately output a **relative load score over time**, not an absolute stre
 | `fig2_stage2_pinn` | example predicted vs. true curves on unseen people |
 | `fig6_moment_arm_sensitivity` | how much the lever assumption matters |
 | `fig5_stage3_opensim_xcheck` | our estimate vs. a validated model |
+| `fig10_input_degradation` | accuracy under insole-grade input corruption |
+| `fig11_uncertainty` | per-prediction confidence bands + calibration |
 | `fig3` / `fig4` | left/right balance and load build-up over sessions |
 
 ## 7. What this is NOT (the limits, stated plainly)
@@ -132,7 +148,7 @@ We deliberately output a **relative load score over time**, not an absolute stre
 - **Stand-in data.** Public walking/running data stands in for your insole; the four insole zones are derived from the total push, not measured pressure.
 - **Relative, not absolute.** Tendon thickness, stiffness, and lever are population averages, so the absolute stress is indicative; the product score is deliberately relative.
 - **No internal ground truth.** Tendon load is not directly measured here (it rarely is, even in labs); the OpenSim check is model-vs-model, not proof.
-- **A lower bound on force.** We use the *net* ankle effort, which already subtracts any opposing muscle pulling the other way (co-contraction). Real Achilles force is therefore a little higher than we report; the honest fix is muscle-activity (EMG) measurement.
+- **A modest lower bound on force.** We use the *net* ankle effort, so any opposing-muscle (tibialis anterior) co-contraction makes the true Achilles force slightly higher. The good news for *peak* load: at push-off the antagonist is largely quiet and multiarticular confounds at the ankle are small (~2–7%, Honert & Zelik 2016), so the peak — the number that matters — is only a modest underestimate; co-contraction matters more in early stance. EMG-driven modelling is the honest fix.
 - **Healthy gait.** All subjects are healthy. Transfer to patients and to real insole signals is unproven.
 - **Sensor interface.** The pipeline's input is *calibrated plantar load*. A TENG insole outputs a voltage, so a voltage→load calibration (your reported near-linear response, ~10 V at 20 N) is the bridge this assumes; it is not modelled here.
 
@@ -147,6 +163,21 @@ We deliberately output a **relative load score over time**, not an absolute stre
 - **"Why the physics constraints if they don't raise accuracy?"** They guarantee **physically valid output** (force ≥ 0, moment-consistent, bounded rate) — insurance for noisy real-world signals, not an accuracy claim.
 - **"How does this attach to your TENG insole?"** The input is calibrated plantar load + ankle angle; your sensor's voltage→load linearity is the calibration, and an IMU gives the angle. The four zones map to your Big-Toe/Forefoot/Arch/Heel layout.
 
+## 7c. Real-insole readiness (lab input → your hardware)
+
+What each lab input becomes on Mirai's device, and the calibration it needs:
+
+| Lab input here | On the Mirai insole | Calibration / processing needed |
+|---|---|---|
+| Vertical ground reaction force | sum of the TENG zone signals | per-zone voltage→force (your reported ~10 V at 20 N linearity), drift/temperature compensation, per-step baseline |
+| Four insole zones | the four TENG regions directly | per-zone calibration; no spatial proxy needed (we only proxy it because public data lacks pressure maps) |
+| Ankle angle | the paired IMU (you already use TENG + IMU) | gyro/accel fusion, sagittal-plane extraction, drift correction |
+| Step segmentation (0–100%) | insole heel-strike/toe-off timing or IMU | event detection on the live signal |
+| Body mass | entered once per user | none |
+| Moment arm (the dominant uncertainty) | one-time per-athlete ultrasound, else population value | imaging at onboarding (see the sensitivity analysis for why) |
+
+The model we recommend is a **compact linear map**, so inference is a few multiply-adds per step — it runs on the insole's microcontroller, no cloud needed.
+
 ## 8. Run it
 
 ```bash
@@ -155,7 +186,7 @@ pip install -e .
 python scripts/download_data.py            # running data (~5 MB)
 python scripts/download_data.py --walking   # add walking data (~586 MB, optional)
 python scripts/run_all.py                   # every stage + figures
-pytest                                       # 28 tests
+pytest                                       # 42 tests
 ```
 No download → add `--source synthetic` to any stage (clearly-labelled synthetic data). No OpenSim → that one cross-check skips; everything else runs.
 
