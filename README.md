@@ -58,36 +58,37 @@ Three views: force across the step, the resulting stress against the tendon's br
 
 Running one pipeline on **both** datasets gives a clean, physically correct picture: Achilles load rises smoothly from **~2.7 body-weights in walking** (your cohort's gait mode) to **~5 in running**. The method is not tuned for runners; it tracks load correctly from a slow walk to a fast run. Walking values land right where the literature says they should (~2–3.5 BW), which is itself a check that the physics is right.
 
-### 5c. A wearable signal can recover the internal load (the ML pipeline)
-![stage2](figures/fig2_stage2_pinn.png)
+### 5c. Can a wearable signal recover the internal load? (the ML pipeline, evaluated honestly)
+![comparison](figures/fig8_model_comparison.png)
 
-This is the core machine-learning result, and the part most relevant to a device.
+**The question:** can a cheap, wearable-style signal reproduce the internal tendon-load curve that the full *lab* physics computes? If yes, you don't need a lab; an insole plus a motion sensor is enough.
 
-**The question:** can a cheap, wearable-style signal reproduce the internal tendon-load curve that the full physics computes? If yes, you don't need a lab; an insole plus a motion sensor is enough.
+**What goes in:** six signals over one step — vertical ground push, ankle angle (motion sensor), and **four "insole-zone" channels** standing in for the Big-Toe/Forefoot/Arch/Heel layout. (Honest note: no real pressure map yet, so the four zones are derived from the total push by a documented heel-to-toe rollover.) **What comes out:** the Achilles force curve over the step.
 
-**What goes in:** six signals over one step, all things a wearable can produce — the vertical ground push, the ankle angle (from a motion sensor), and **four "insole-zone" channels** standing in for your Big-Toe / Forefoot / Arch / Heel layout. (Honest note: we don't have a real pressure map, so those four zones are derived from the total push using a documented heel-to-toe rollover. They show the model can take a four-zone insole signal.)
+**How we tested it:** 5-fold cross-validation **holding out whole people** (everyone is scored by a model that never saw them), with **95% confidence intervals from a cluster bootstrap that resamples subjects** (steps within a person are correlated, so resampling subjects, not steps, is the honest choice). And we compared against **baselines**, because a big R² means nothing without them:
 
-**What comes out:** the Achilles force curve over the whole step.
+| Model | R² (full curve) | 95% CI | R² (loaded phase) | Peak-force error |
+|---|---|---|---|---|
+| mean curve (no-skill floor) | 0.91 | [0.89, 0.93] | 0.69 | 12.6% |
+| linear: GRF only | 0.96 | [0.95, 0.97] | 0.86 | 8.4% |
+| linear: GRF + ankle angle | 0.98 | [0.97, 0.99] | 0.92 | 8.2% |
+| linear: all 6 inputs | 0.98 | [0.98, 0.99] | 0.94 | 7.5% |
+| physics-guided CNN | 0.98 | [0.98, 0.99] | 0.94 | 6.4% |
 
-**The model:** a small **temporal convolutional network** (a network that slides a shared filter along the time signal), about **16,000 numbers** in total. To be precise about wording: this is a *physics-guided* network, not the classic "PINN" that solves a differential equation. The physics enters as **rules in the training objective**, not as an equation solver. A convolutional network fits because the relationship is local in time and the shared filter generalizes across people with very few parameters.
+**Reading it the way a reviewer would:**
+- The **mean curve alone scores R²=0.91** — running curves are stereotyped, so judge skill *above this floor*, not above zero. And because the force is ~0 for most of the step (the swing phase), full-curve R² is flattering, so we also report **loaded-phase R²** (the honest number) and **peak-force error** (what actually matters clinically).
+- A **simple linear model reaches R²=0.98** (loaded 0.94, peak error 7.5%). The **CNN ties it** (loaded 0.94, peak 6.4%); their confidence intervals overlap. So **the neural net does not beat a linear model here.**
+- **Each input earns its place:** GRF alone gives loaded R²=0.86; adding ankle angle → 0.92; the full set → 0.94. The model uses the signals, it is not trivially inverting one number.
 
-**The physics rules it must obey** (each is a real fact about tendons):
-1. force can never be negative (a tendon pulls, it cannot push),
-2. force × lever must equal the measured ankle effort (balance at the joint),
-3. the force cannot jump instantly (loading is smooth).
+**The honest verdict:** a **compact linear model is enough**, and it is ideal for **on-device inference** on an insole. The real result is that the wearable signal genuinely carries the internal-load curve — not that deep learning is required. We keep the physics-guided CNN because its constraints (force ≥ 0, force×lever = measured effort, bounded loading rate) **guarantee physically valid output** even where it does not raise accuracy, which matters on noisy real-world signals.
 
-**How we tested it (the honest part):** **5-fold cross-validation, holding out whole people.** We split the runners into 5 groups; each group is, in turn, kept completely out of training and used only for testing. So every person is tested on a model that never saw them. This is the real test for a device that will meet new athletes.
+**Peak-force agreement (Bland-Altman):**
 
-**Result:**
+![peak](figures/fig9_peak_agreement.png)
 
-| Metric | Value |
-|---|---|
-| Accuracy on unseen people (R²) | **0.983 ± 0.002** across the 5 folds |
-| Typical error | **0.21 body-weights** (against peaks near 5) |
+Predicted vs. reference peak force show **negligible bias (−0.02 BW)** and **95% limits of agreement of ±0.93 BW** (about ±18% of a typical peak). We show this honestly: there is no systematic error, but per-stride peak prediction still has real spread — the clinical-validation view (do two methods *agree*), not just whether they correlate.
 
-In plain terms: from a cheap wearable-style signal, the model reproduces the internal load curve on people it never trained on, capturing about **98%** of the variation.
-
-**An honest check we ran:** we retrained with the physics rules switched off. Accuracy was the same (within noise). So on this clean lab data the rules don't *improve* the score; their job is to keep the output physically valid (never negative, never jumpy), which matters more on messy real-world insole data. We report this straight rather than overclaim.
+**"Isn't this circular — predicting your own formula?"** A fair challenge. The target is the Achilles force the **full inverse-dynamics pipeline** produces, which normally needs lab motion capture *and* force plates. The model reproduces it from a **reduced wearable signal** (vertical push + ankle angle). That is a genuine data-reduction result (lab → wearable), and the residual is real: the omitted horizontal forces, centre of pressure, and limb accelerations carry the missing few percent. It is **not** measured tendon load — see the limits below.
 
 ### 5d. We quantified the biggest assumption (the lever length)
 ![sensitivity](figures/fig6_moment_arm_sensitivity.png)
@@ -110,7 +111,7 @@ We compared our lever assumption to **OpenSim**, a standard, validated model of 
 We deliberately output a **relative load score over time**, not an absolute stress number, because that is what is defensible and useful, and what continuous capture enables.
 
 - **Left/right balance:** the load each leg carries over sessions. In the example, a growing imbalance crosses a 10% watch line — the kind of trend continuous monitoring catches early (and echoes your own asymmetry finding).
-- **Build-up over time:** total tendon loading per session, plus a **recent-vs-usual workload ratio** (a fatigue-style indicator). A spike session pushes it past the risk threshold, then it settles. Framed as a **warning sign, not a prediction.**
+- **Build-up over time:** total tendon loading per session, plus a **recent-vs-usual workload ratio** (a fatigue-style indicator). A spike session pushes it past the risk threshold, then it settles. Framed as a **warning sign, not a prediction.** (Note: the acute:chronic workload ratio is a useful, intuitive indicator but is statistically contested in the sports-science literature; we use it as a transparent demonstration, not a validated predictor.)
 
 ## 6. The figures, at a glance
 
@@ -119,7 +120,9 @@ We deliberately output a **relative load score over time**, not an absolute stre
 | `fig0_pipeline` | the five-step method |
 | `fig1_stage1_achilles_load` | tendon force, stress vs. failure, and the material curve |
 | `fig7_walking_vs_running` | load across the gait spectrum (walking → running) |
-| `fig2_stage2_pinn` | the model's prediction vs. truth on unseen people |
+| `fig8_model_comparison` | the model comparison vs. baselines, with CIs (the ML headline) |
+| `fig9_peak_agreement` | Bland-Altman agreement on peak force |
+| `fig2_stage2_pinn` | example predicted vs. true curves on unseen people |
 | `fig6_moment_arm_sensitivity` | how much the lever assumption matters |
 | `fig5_stage3_opensim_xcheck` | our estimate vs. a validated model |
 | `fig3` / `fig4` | left/right balance and load build-up over sessions |
@@ -131,8 +134,18 @@ We deliberately output a **relative load score over time**, not an absolute stre
 - **No internal ground truth.** Tendon load is not directly measured here (it rarely is, even in labs); the OpenSim check is model-vs-model, not proof.
 - **A lower bound on force.** We use the *net* ankle effort, which already subtracts any opposing muscle pulling the other way (co-contraction). Real Achilles force is therefore a little higher than we report; the honest fix is muscle-activity (EMG) measurement.
 - **Healthy gait.** All subjects are healthy. Transfer to patients and to real insole signals is unproven.
+- **Sensor interface.** The pipeline's input is *calibrated plantar load*. A TENG insole outputs a voltage, so a voltage→load calibration (your reported near-linear response, ~10 V at 20 N) is the bridge this assumes; it is not modelled here.
 
-**What I'd validate next with your data:** fit the lever per athlete; calibrate the insole zones to real pressure; retrain the model on your insole + motion signals (where the physics rules should start to earn their place); and test the load score against real symptoms in your rehab cohort.
+**What I'd validate next with your data:** fit the lever per athlete; calibrate the insole zones to real pressure; retrain on your insole + IMU signals (where the physics constraints should start to earn their place); and test the load score against real symptoms in your rehab cohort.
+
+## 7b. Anticipated questions (the short answers)
+
+- **"Why is R² so high — is it inflated?"** Partly: the force is ~0 during swing, so full-curve R² (0.98) flatters. We report the **loaded-phase R² (0.94)** and **peak error (7.5%)**, against a **no-skill floor of 0.91** (stereotyped curves). Judge skill above the floor.
+- **"Isn't the target circular — you predict your own formula?"** The target needs full lab inverse dynamics (mocap + force plates). The model reproduces it from a **reduced wearable signal**; that is a data-reduction result, and the missing few percent live in the horizontal forces / CoP / accelerations we drop. It is not measured tendon load.
+- **"Is the neural net justified?"** No — a **linear model ties it** (overlapping CIs). We recommend the **compact linear model** for on-device use and say so plainly; the CNN is kept only for its physical-validity guarantees.
+- **"n=31 subjects — is the estimate stable?"** We use subject-wise CV, **cluster-bootstrap CIs** (resampling subjects), and report the **per-subject R² spread**. Small N is a stated limit; the CIs quantify it.
+- **"Why the physics constraints if they don't raise accuracy?"** They guarantee **physically valid output** (force ≥ 0, moment-consistent, bounded rate) — insurance for noisy real-world signals, not an accuracy claim.
+- **"How does this attach to your TENG insole?"** The input is calibrated plantar load + ankle angle; your sensor's voltage→load linearity is the calibration, and an IMU gives the angle. The four zones map to your Big-Toe/Forefoot/Arch/Heel layout.
 
 ## 8. Run it
 
@@ -155,7 +168,8 @@ src/achilles/
   config.py        all physical constants + citations, in one place
   data/            gait-trial interface; running, walking, synthetic sources
   biomech/         the lever models, the tendon material law, the load model, sensitivity
-  ml/              wearable features, the network, the physics loss, cross-validation
+  ml/              wearable features, the network, the physics loss, baselines,
+                   cross-validation, and the evaluation metrics (CIs, agreement)
   product/         the load score, balance, and build-up over time
   opensim_xcheck/  the validated-model cross-check (optional)
   viz/             the figures

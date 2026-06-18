@@ -37,6 +37,8 @@ def main() -> None:
     _run("run_stage1_analytical.py", ["--source", args.source])
     _run("run_stage2_pinn.py", ["--source", args.source, "--epochs", str(args.epochs),
                                 "--k", str(args.k)])
+    _run("run_model_comparison.py", ["--source", args.source, "--epochs", str(args.epochs),
+                                     "--k", str(args.k)])
     _run("run_moment_arm_sensitivity.py", ["--source", args.source])
     _run("run_stage4_product.py", ["--source", args.source])
     _run("run_walking_vs_running.py", [])  # needs --walking data; skips cleanly if absent

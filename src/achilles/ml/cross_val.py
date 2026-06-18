@@ -11,8 +11,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+import torch
+
 from achilles.biomech.achilles import AchillesLoadModel
 from achilles.data.trial import GaitTrial
+from achilles.ml.baselines import SequenceModel
 from achilles.ml.dataset import AchillesSequenceDataset, build_samples
 from achilles.ml.losses import LossWeights
 from achilles.ml.trainer import Trainer, TrainConfig
@@ -93,3 +96,69 @@ def subject_kfold(
         true_curves=true_all, pred_curves=pred_all,
         n_subjects=len(subjects), k=k,
     )
+
+
+# -- model comparison on shared folds ---------------------------------------
+def _subject_folds(trials: list[GaitTrial], k: int, seed: int) -> list[list[str]]:
+    subjects = sorted({t.subject_id for t in trials})
+    rng = np.random.default_rng(seed)
+    rng.shuffle(subjects)
+    return [list(f) for f in np.array_split(subjects, k)]
+
+
+def _dataset_arrays(ds: AchillesSequenceDataset):
+    """Stack standardised inputs (N,C,T), targets (N,T) and per-sample subjects."""
+    X = np.stack([ds[i]["x"].numpy() for i in range(len(ds))])
+    Y = np.stack([ds[i]["y"].numpy() for i in range(len(ds))])
+    subj = [s.subject_id for s in ds.samples]
+    return X, Y, subj
+
+
+def compare_models_kfold(
+    trials: list[GaitTrial],
+    baselines: list[SequenceModel],
+    k: int = 5,
+    epochs: int = 200,
+    seed: int = 0,
+    weights: LossWeights | None = None,
+    include_cnn: bool = True,
+) -> dict[str, dict]:
+    """Score the CNN and each baseline on identical subject-wise folds.
+
+    Returns model_name -> {subject_ids, true_curves, pred_curves} pooled over
+    held-out folds, so every model is judged on exactly the same unseen people.
+    """
+    load_model = AchillesLoadModel()
+    folds = _subject_folds(trials, k, seed)
+    out: dict[str, dict] = {}
+
+    def _collect(name, subj, true, pred):
+        d = out.setdefault(name, {"subject_ids": [], "true_curves": [], "pred_curves": []})
+        d["subject_ids"].extend(subj)
+        d["true_curves"].extend(list(true))
+        d["pred_curves"].extend(list(np.clip(pred, 0.0, None)))  # tendon force >= 0
+
+    for test_subj in folds:
+        test_set = set(test_subj)
+        train_t = [t for t in trials if t.subject_id not in test_set]
+        test_t = [t for t in trials if t.subject_id in test_set]
+        train_ds = AchillesSequenceDataset(build_samples(train_t, load_model))
+        test_ds = AchillesSequenceDataset(build_samples(test_t, load_model),
+                                          train_ds.feat_mean, train_ds.feat_std)
+        Xtr, Ytr, _ = _dataset_arrays(train_ds)
+        Xte, Yte, subj_te = _dataset_arrays(test_ds)
+
+        for b in baselines:
+            b.fit(Xtr, Ytr)
+            _collect(b.name, subj_te, Yte, b.predict(Xte))
+
+        if include_cnn:
+            cfg = TrainConfig(epochs=epochs, weights=weights or LossWeights(), seed=seed)
+            trainer = Trainer(train_ds, test_ds, cfg)
+            trainer.train(verbose=False)
+            trainer.model.eval()
+            with torch.no_grad():
+                pred = trainer.model(torch.from_numpy(Xte.astype(np.float32))).numpy()
+            _collect("physics-guided CNN", subj_te, Yte, pred)
+
+    return out

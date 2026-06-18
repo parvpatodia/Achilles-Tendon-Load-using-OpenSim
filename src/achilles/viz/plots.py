@@ -232,6 +232,65 @@ def plot_stage3_opensim(phase, analytical_bw, opensim_bw, out_path: Path,
     return out_path
 
 
+# --- Model comparison + agreement ------------------------------------------
+def plot_model_comparison(metrics: dict, order: list, out_path: Path) -> Path:
+    """Held-out R^2 per model with cluster-bootstrap CIs, against the no-skill
+    floor, with loaded-phase R^2 annotated. Shows whether the CNN earns its keep."""
+    apply_house_style()
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    names = order
+    r2 = [metrics[n].r2 for n in names]
+    ci = [metrics[n].r2_ci for n in names]
+    err = [[r - lo for r, (lo, _) in zip(r2, ci)], [hi - r for r, (_, hi) in zip(r2, ci)]]
+    y = np.arange(len(names))
+    colors = [ACCENT2 if "CNN" in n else (MUTED if "floor" in n else ACCENT) for n in names]
+    xmin = min(r2) - 0.05
+    ax.set_xlim(xmin, 1.0)
+    ax.barh(y, r2, xerr=err, color=colors, alpha=0.85, capsize=4, height=0.6)
+    floor = metrics[names[0]].r2
+    ax.axvline(floor, color=MUTED, ls="--", lw=1.2)
+    ax.text(floor, len(names) - 0.4, " no-skill floor", color=MUTED, fontsize=9,
+            va="top", ha="center")
+    # loaded-phase R^2 inside each bar (the honest metric; full-curve R^2 is
+    # inflated by the near-zero swing phase)
+    for yi, n in zip(y, names):
+        ax.text(xmin + 0.004, yi, f"loaded R²={metrics[n].r2_loaded:.2f}",
+                va="center", ha="left", fontsize=8, color="white", fontweight="bold")
+    ax.set_yticks(y); ax.set_yticklabels(names, fontsize=9)
+    ax.set_xlabel("Held-out R²  (subject-wise CV, 95% cluster-bootstrap CI)")
+    ax.invert_yaxis()
+    ax.set_title("Does the neural net earn its complexity? (honest baselines)",
+                 fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
+def plot_bland_altman(true_peak, pred_peak, out_path: Path, label: str = "") -> Path:
+    """Bland-Altman agreement of predicted vs reference PEAK Achilles force."""
+    apply_house_style()
+    true_peak, pred_peak = np.asarray(true_peak), np.asarray(pred_peak)
+    mean = (true_peak + pred_peak) / 2
+    diff = pred_peak - true_peak
+    bias, sd = diff.mean(), diff.std(ddof=1)
+    fig, ax = plt.subplots(figsize=(7.5, 5))
+    ax.scatter(mean, diff, s=18, alpha=0.45, color=ACCENT, edgecolors="none")
+    ax.axhline(bias, color=INK, lw=1.6, label=f"bias {bias:+.2f} BW")
+    ax.axhline(bias + 1.96 * sd, color=WARN, ls="--", lw=1.3,
+               label=f"95% limits of agreement ±{1.96*sd:.2f} BW")
+    ax.axhline(bias - 1.96 * sd, color=WARN, ls="--", lw=1.3)
+    ax.axhline(0, color=MUTED, ls=":", lw=1)
+    ax.set_xlabel("Mean of predicted and reference peak force (BW)")
+    ax.set_ylabel("Predicted − reference (BW)")
+    ax.set_title(f"Peak-force agreement (Bland-Altman) {label}".strip(), fontweight="bold")
+    ax.legend(loc="upper right", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Walking vs running continuum ------------------------------------------
 def plot_walking_vs_running(walk_results, run_results, out_path: Path) -> Path:
     """Peak Achilles force vs gait speed, from slow walking to running, showing
