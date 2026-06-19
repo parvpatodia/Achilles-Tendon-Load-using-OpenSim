@@ -41,6 +41,8 @@ A deliberate choice, not convenience:
 
 ![pipeline](figures/fig0_pipeline.png)
 
+*The method in five steps, left to right: from the load under the foot to the internal tendon load. A flow diagram, no axes.*
+
 1. **Plantar load + motion** (what a wearable gives).
 2. **Ground reaction force** (the push from the ground).
 3. **Ankle moment** (the turning effort at the ankle).
@@ -62,6 +64,8 @@ Two open datasets from the same lab (BMClab), so processing is consistent:
 ### 6a. Tendon load on real data: the numbers match reality
 ![stage1](figures/fig1_stage1_achilles_load.png)
 
+*Three panels. Left: tendon force (y, in body-weights) across one step (x = gait cycle %, 0 to 100); the peak near 20% is push-off, and the three lines are the three running speeds. Middle: the resulting stress (y, in MPa) against the ~100 MPa breaking line. Right: the tendon's stress-strain material curve (x = stretch %, y = stress), with each runner's peak as orange dots and rupture marked with an X.*
+
 Force across the step, the resulting stress against the tendon's breaking point, and where running lands on the tendon's own stress-strain curve (a real material curve with a soft "toe" region and a stiff region, not a simple spring).
 
 - Peak Achilles force is **about 5 body-weights** in running (up to 7) and **rises with speed**. Both match the literature.
@@ -70,10 +74,14 @@ Force across the step, the resulting stress against the tendon's breaking point,
 ### 6b. The same method works from walking to running
 ![continuum](figures/fig7_walking_vs_running.png)
 
+*X = gait speed (slow walk on the left to fast run on the right); Y = peak Achilles force in body-weights. Load rises smoothly from about 2.7 (walking) to about 5 (running).*
+
 One pipeline on both datasets: Achilles load rises smoothly from **about 2.7 body-weights in walking** (your cohort's gait mode) to **about 5 in running**. Walking values land where the literature says they should (about 2 to 3.5 BW), itself a check that the physics is right.
 
 ### 6c. Can a wearable signal recover the internal load? (the modelling, evaluated honestly)
 ![comparison](figures/fig8_model_comparison.png)
+
+*Each bar is one model; X = accuracy (R², higher is better) with its confidence range. The dashed line is the 0.91 "no-skill" floor. The simple linear model ties the neural net near 0.98.*
 
 **The question:** can a cheap wearable-style signal reproduce the tendon-load curve that the full lab physics computes? **In goes** six signals over one step (the ground push, the ankle angle, and four "insole-zone" channels for your Big-Toe/Forefoot/Arch/Heel layout, derived from total push since public data has no pressure map). **Out comes** the Achilles force curve.
 
@@ -99,21 +107,31 @@ We tested it with **5-fold cross-validation holding out whole people** (everyone
 
 ### 6d. The biggest assumption: the lever, sensitivity and cross-check
 ![sensitivity](figures/fig6_moment_arm_sensitivity.png)
+
+*X = the assumed tendon lever (moment arm, in cm). Blue Y = peak force (body-weights), orange Y = peak stress (MPa). Both fall as the lever grows, since force = moment / lever; about 40% swing across the plausible range.*
 ![opensim](figures/fig5_stage3_opensim_xcheck.png)
+
+*X = one step (gait cycle %); Y = force in body-weights. Our simple estimate (solid) versus the validated OpenSim model (dashed); they agree within about 16%.*
 
 Everything leans on one number, the tendon's lever (moment arm), and the literature spread is wide (4 to 6 cm). Instead of hiding behind one value we **swept it**: peak force changes about **40%** across that range. We then **cross-checked it against OpenSim**, a standard validated musculoskeletal model: it gives a lever of 4.4 to 4.8 cm with the same shape we assumed, and the two force estimates agree within about **16%**. Honest caveat: external measures like height predict the lever poorly (Sheehan 2007), so the real fix is a one-time per-athlete ultrasound. The lever is now set per person from height as a weak placeholder until then.
 
 ### 6e. Robustness and uncertainty (the real-insole reality check)
 ![degradation](figures/fig10_input_degradation.png)
 
+*We deliberately worsen the input to mimic a real insole. Three panels: added sensor noise, fewer readings per second (downsampling), and a coarser sensor chip (fewer ADC bits). In each, blue = accuracy, red = error. It holds up well, even with a cheap 3-bit chip.*
+
 The R² is on **pristine lab inputs**. So we trained on clean data and tested on **progressively degraded inputs**: it holds to moderate sensor noise, stays stable to about 4x downsampling, and **survives a 3-bit ADC (loaded R² 0.92)**, which is good news for a cheap insole. The realistic operating point lives on these curves, not at the clean-data edge.
 
 ![uncertainty](figures/fig11_uncertainty.png)
+
+*Left: one held-out runner, with the truth (black), the prediction (dashed), and the 90% confidence band (shaded). Right: a check that the band is honest. X = the confidence we claim, Y = how often the truth actually lands inside; the points sit on the diagonal (we claim 90%, we get 89%).*
 
 Every prediction also carries a **calibrated confidence band** (a deep ensemble for the prediction, conformal calibration for the band width). We checked the bands mean what they say: a 90% band covers 89% of unseen cases, a 95% band covers 94%. That is the direct answer to "where are your error bars?"
 
 ### 6f. The product view (illustrative)
 ![asymmetry](figures/fig3_stage4_asymmetry.png)
+
+*Over simulated sessions (x-axis). Left: the load carried by each leg. Right: the left/right difference in %, drifting out of the green "balanced" band past the watch line. Simulated to show the product idea, not a result.*
 
 The output is a **relative, per-athlete score over time**, not an absolute stress number. Here, simulated sessions show a left/right imbalance growing past a watch line, echoing your own asymmetry finding. The same idea extends to a recent-versus-usual workload trend. This is framed as a **warning sign, not a prediction**, and the sessions are simulated to illustrate the product, not a result.
 
