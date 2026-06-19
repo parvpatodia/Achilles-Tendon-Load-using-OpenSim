@@ -21,6 +21,17 @@ Mirai's self-powered insole measures how hard the foot pushes on the ground. Thi
 
 Your sensor is a material that turns pressure into an electrical signal. The Achilles is a material that turns load into stress and strain. This connects the two: **from the load your sensor sees, to the stress inside the tissue.**
 
+## 2b. Why the Achilles tendon (and not individual muscles)
+
+This is a deliberate modelling choice, not convenience:
+
+1. **It is what you can actually identify from a wearable.** A joint has more muscles than degrees of freedom, so the ankle moment does **not** uniquely determine individual muscle forces — the classic *muscle-redundancy problem*; recovering per-muscle forces needs EMG or optimisation assumptions (Crowninshield & Brand 1981; Erdemir et al. 2007). The **Achilles tendon force is the exception**: it is the common insertion of the calf muscles (gastrocnemius + soleus), so its load equals their *combined* output and follows directly from the ankle moment. From an insole + IMU, the tendon is the internal load you can compute; individual muscle forces are not.
+2. **Tendon load is also a muscle-load measure.** Muscle and tendon act in series, so the Achilles force we compute **is** the aggregate force the triceps surae produces. We just report the part that is identifiable, and we are explicit that we estimate tendon stress/strain and aggregate force, **not** individual muscle forces or muscle-tissue strain (those need EMG).
+3. **Tendon injury is common, mechanical, and fatigue-driven.** Achilles tendinopathy is the **most common overuse injury of the lower limb** (~50% lifetime incidence in distance runners; 6–17% of all running injuries). It is an overuse/fatigue failure of the tendon *material* under repeated stress — so cumulative tendon stress is the mechanistically correct variable, and the tendon is a clean passive material with a well-characterised stress–strain law.
+4. **The Achilles is the closest internal load to your sensor.** Plantar load → ankle → Achilles is the shortest, cleanest inference from a plantar-pressure insole.
+
+**Honest scope:** muscle strains (e.g. hamstring) are also a major injury class, and they need muscle-level (EMG-driven) modelling that this does not do. The Achilles tendon is the **highest-value, most-identifiable first target** from this sensor, not the whole injury picture. EMG-driven per-muscle modelling is the natural next layer, and the code's swappable structure is built for it.
+
 ## 3. The pipeline (five simple steps)
 
 ![pipeline](figures/fig0_pipeline.png)
