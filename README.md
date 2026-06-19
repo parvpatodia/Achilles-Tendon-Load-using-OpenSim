@@ -8,7 +8,13 @@
 
 ## 1. The idea in one line
 
-Mirai's self-powered insole measures how hard the foot pushes on the ground. This project takes that same kind of signal and works out how much force the Achilles tendon carries on each step, then turns that into a simple, per-athlete load score you can track over time. It is a proof that the method works, not a finished product, and it is honest about its limits.
+Mirai's self-powered insole measures how hard the foot pushes on the ground. This project takes that same kind of signal and works out how much force the Achilles tendon carries on each step, then turns that into a simple, per-athlete load score you can track over time.
+
+> ### Read this first — what this is, and what it is not
+> - **This is a feasibility study and a proposed direction**, built to understand the problem and explore one concrete, tractable path end to end. **It is not a validated product**, and it does not claim Mirai should pivot to it.
+> - **There is no non-invasive way to measure true Achilles tendon force.** So this is **data reduction**, not measurement: it reproduces the standard biomechanics-lab estimate from a cheap wearable signal. The high accuracy means *"the wearable signal carries the same information as the lab calculation"* — **not** *"we measure tendon force accurately."*
+> - **The real way to validate this is against injury outcomes, not tendon force** (you never need to measure tendon force to prove a risk indicator — you show the metric tracks who gets hurt). See §7d.
+> - The honest worth of this repo is showing **how the problem can be approached and modelled rigorously**, and being clear about every limit.
 
 ## 2. How it continues your work
 
@@ -27,10 +33,13 @@ This is a deliberate modelling choice, not convenience:
 
 1. **It is what you can actually identify from a wearable.** A joint has more muscles than degrees of freedom, so the ankle moment does **not** uniquely determine individual muscle forces — the classic *muscle-redundancy problem*; recovering per-muscle forces needs EMG or optimisation assumptions (Crowninshield & Brand 1981; Erdemir et al. 2007). The **Achilles tendon force is the exception**: it is the common insertion of the calf muscles (gastrocnemius + soleus), so its load equals their *combined* output and follows directly from the ankle moment. From an insole + IMU, the tendon is the internal load you can compute; individual muscle forces are not.
 2. **Tendon load is also a muscle-load measure.** Muscle and tendon act in series, so the Achilles force we compute **is** the aggregate force the triceps surae produces. We just report the part that is identifiable, and we are explicit that we estimate tendon stress/strain and aggregate force, **not** individual muscle forces or muscle-tissue strain (those need EMG).
-3. **Tendon injury is common, mechanical, and fatigue-driven.** Achilles tendinopathy is the **most common overuse injury of the lower limb** (~50% lifetime incidence in distance runners; 6–17% of all running injuries). It is an overuse/fatigue failure of the tendon *material* under repeated stress — so cumulative tendon stress is the mechanistically correct variable, and the tendon is a clean passive material with a well-characterised stress–strain law.
+3. **Tendon injury is common, mechanical, and fatigue-driven.** Achilles tendinopathy is the **most common overuse injury of the lower limb** (~50% lifetime incidence in distance runners). It is a fatigue failure of the tendon *material* under repeated stress, so cumulative tendon stress is the mechanistically correct variable, and the tendon is a clean passive material with a well-characterised stress–strain law.
 4. **The Achilles is the closest internal load to your sensor.** Plantar load → ankle → Achilles is the shortest, cleanest inference from a plantar-pressure insole.
 
-**Honest scope:** muscle strains (e.g. hamstring) are also a major injury class, and they need muscle-level (EMG-driven) modelling that this does not do. The Achilles tendon is the **highest-value, most-identifiable first target** from this sensor, not the whole injury picture. EMG-driven per-muscle modelling is the natural next layer, and the code's swappable structure is built for it.
+**Honest scope — and how it maps to Mirai's pilot sports.** Be clear about relevance:
+- **Basketball:** highly relevant — basketball is the leading cause of Achilles ruptures, and the mechanism (explosive push-off from a dorsiflexed foot) is exactly the loading this pipeline captures.
+- **Soccer:** the single most common injury is the **hamstring (a muscle)**, which an insole cannot directly see; Achilles rupture is still notable (~17% lifetime incidence in players). So the Achilles is the right **first** target for a foot sensor, not the whole injury picture.
+- Muscle strains need muscle-level (EMG-driven) modelling this does not do. EMG-driven per-muscle modelling is the natural next layer, and the code's swappable structure is built for it.
 
 ## 3. The pipeline (five simple steps)
 
@@ -86,8 +95,10 @@ Running one pipeline on **both** datasets gives a clean, physically correct pict
 | linear: all 6 inputs | 0.98 | [0.98, 0.99] | 0.94 | 7.5% |
 | physics-guided CNN | 0.98 | [0.98, 0.99] | 0.94 | 6.4% |
 
+*(R² = how much of the curve's variation the model captures: 1.0 is perfect, 0 is no better than guessing the average. "Loaded-phase R²" is the same score computed only while the foot is on the ground and the tendon is actually loaded — see below. Peak error is how far off the single highest force is.)*
+
 **Reading it the way a reviewer would:**
-- The **mean curve alone scores R²=0.91** — running curves are stereotyped, so judge skill *above this floor*, not above zero. And because the force is ~0 for most of the step (the swing phase), full-curve R² is flattering, so we also report **loaded-phase R²** (the honest number) and **peak-force error** (what actually matters clinically).
+- The **mean curve alone scores R²=0.91** — running curves all look similar, so judge skill *above this floor*, not above zero. And the foot is in the air (Achilles force ≈ 0) for more than half the step; predicting those easy zeros pads the full-curve R². So we also report **loaded-phase R²** — the score on just the hard, foot-on-ground part — and **peak-force error**, which is what actually matters.
 - A **simple linear model reaches R²=0.98** (loaded 0.94, peak error 7.5%). The **CNN ties it** (loaded 0.94, peak 6.4%); their confidence intervals overlap. So **the neural net does not beat a linear model here.**
 - **Each input earns its place:** GRF alone gives loaded R²=0.86; adding ankle angle → 0.92; the full set → 0.94. The model uses the signals, it is not trivially inverting one number.
 
@@ -188,6 +199,14 @@ What each lab input becomes on Mirai's device, and the calibration it needs:
 | Moment arm (the dominant uncertainty) | one-time per-athlete ultrasound, else population value | imaging at onboarding (see the sensitivity analysis for why) |
 
 The model we recommend is a **compact linear map**, so inference is a few multiply-adds per step — it runs on the insole's microcontroller, no cloud needed.
+
+## 7d. How you'd validate this for real (the honest plan)
+
+The obvious objection is "you can't measure true Achilles force, so how do you validate it?" Three answers, in order of importance:
+
+1. **Validate the product against injury *outcomes*, not tendon force.** A risk indicator does not need a force ground truth — it needs to predict who gets hurt. Run the load index prospectively on a cohort (your rehab patients, your club pilots) and test whether it flags the athletes who go on to develop symptoms. That sidesteps the unmeasurable-force problem entirely and is the only validation that matters commercially.
+2. **The moment-arm uncertainty mostly cancels in the metric we actually output.** The product is a *relative, per-athlete, over-time* index. The acute:chronic ratio divides one load by another for the *same person*, so their (constant) moment arm cancels exactly; left/right asymmetry compares two legs of the same person, so it cancels too. **The absolute body-weight number is uncertain; the relative trend you act on is robust.** Per-athlete ultrasound pins the absolute value when needed.
+3. **A small calibration cohort to adapt to your hardware.** Recruit ~30–50 people of varied heights; for each, measure their own moment arm and tendon stiffness by ultrasound, and record them wearing the Mirai insole *while simultaneously* captured in a gait lab. Pretrain on public data, then fine-tune so the model reproduces the lab estimate **from the Mirai signal specifically** (domain adaptation). The lab estimate is the best available reference label — honestly still a model, not true force; the force stays modelled, and the *product* is judged on outcome step 1.
 
 ## 8. Run it
 
