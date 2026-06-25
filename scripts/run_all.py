@@ -41,6 +41,7 @@ def main() -> None:
                                      "--k", str(args.k)])
     _run("run_moment_arm_sensitivity.py", ["--source", args.source])
     _run("run_robustness.py", ["--source", args.source, "--epochs", str(args.epochs)])
+    _run("run_data_efficiency.py", ["--source", args.source])
     _run("run_uncertainty.py", ["--source", args.source])
     _run("run_stage4_product.py", ["--source", args.source])
     _run("run_walking_vs_running.py", [])  # needs --walking data; skips cleanly if absent

@@ -447,6 +447,33 @@ def plot_uncertainty(uq, out_path: Path) -> Path:
     return out_path
 
 
+# --- Data-efficiency curve -------------------------------------------------
+def plot_data_efficiency(result, out_path: Path) -> Path:
+    """Loaded-phase R^2 vs number of training subjects for the physics-guided
+    CNN, the same net without physics, and the linear baseline. Shows whether
+    the physics prior buys accuracy in the small-cohort regime."""
+    apply_house_style()
+    colors = {"physics-guided CNN": ACCENT2, "data-only CNN": WARN, "linear (ridge)": ACCENT}
+    markers = {"physics-guided CNN": "o", "data-only CNN": "s", "linear (ridge)": "^"}
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    x = np.array(result.sizes)
+    for m in result.models:
+        mean = result.mean_loaded_r2[m]
+        sd = result.std_loaded_r2[m]
+        ax.plot(x, mean, marker=markers[m], color=colors[m], lw=2.2, ms=5, label=m)
+        ax.fill_between(x, mean - sd, mean + sd, color=colors[m], alpha=0.12)
+    ax.set_xlabel(f"Training subjects (fixed {result.n_test_subjects}-subject held-out test set)")
+    ax.set_ylabel("Loaded-phase R²  (held-out, mean ± SD over seeds)")
+    ax.set_xticks(x)
+    ax.set_title("Data efficiency: does the physics prior help when subjects are few?",
+                 fontweight="bold")
+    ax.legend(loc="lower right", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Pipeline diagram for the README --------------------------------------
 def plot_pipeline_diagram(out_path: Path) -> Path:
     apply_house_style()

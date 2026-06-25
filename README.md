@@ -135,6 +135,18 @@ Every prediction also carries a **calibrated confidence band** (a deep ensemble 
 
 The output is a **relative, per-athlete score over time**, not an absolute stress number. Here, simulated sessions show a left/right imbalance growing past a watch line, echoing your own asymmetry finding. The same idea extends to a recent-versus-usual workload trend. This is framed as a **warning sign, not a prediction**, and the sessions are simulated to illustrate the product, not a result.
 
+### 6g. Does the neural net, or the physics loss, ever earn its keep? (tested across cohort sizes)
+![data efficiency](figures/fig12_data_efficiency.png)
+
+*X = number of training people; Y = accuracy (loaded-phase R²) on a fixed group of 8 held-out people, averaged over 5 random draws of who is in the training set, with the spread shaded. Three lines: the physics-guided net, the same net with the physics terms switched off, and the linear model.*
+
+Two questions a reviewer will ask, answered by measurement rather than assertion:
+
+- **Do the physics-loss terms improve accuracy?** No. The physics-guided net and the same net with physics switched off sit on top of each other at every cohort size (gap within ±0.003 R²). The physics terms are a validity guardrail (they keep the predicted force non-negative and smooth), not an accuracy lever. We keep them for that, and claim nothing more.
+- **Does the net beat the linear model when data is scarce?** No, the opposite. In the smallest cohorts (4 to 8 people, the size a pilot actually starts at) the linear model is ahead; the net needs about 12 people just to catch up, and they tie by 20. The spreads overlap, so the honest reading is "the net never wins, and trails exactly when data is scarcest."
+
+This sharpens the recommendation from 6c: use the compact linear model. It is not only good enough on the full cohort, it is the safer choice in the small calibration cohort (§9) where a pilot begins.
+
 ## 7. What this is NOT (limits, stated plainly)
 
 - **Stand-in data.** Public data stands in for your insole; the four zones are derived from total push, not measured pressure.
