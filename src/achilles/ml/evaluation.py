@@ -13,7 +13,7 @@ Designed to survive scrutiny from a statistics-trained reviewer:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -81,10 +81,19 @@ class CVMetrics:
     peak_mae_bw: float = float("nan")
     peak_mape_pct: float = float("nan")
     peak_agreement: Agreement | None = None
+    # loaded-phase R^2 per held-out subject: a wearable is judged on its weakest
+    # athlete, so the worst case is reported, not only the cohort average.
+    per_subject_r2_loaded: dict[str, float] = field(default_factory=dict)
 
     @property
     def r2_subject_summary(self) -> tuple[float, float, float]:
         v = np.array(list(self.per_subject_r2.values()))
+        return float(np.min(v)), float(np.median(v)), float(np.max(v))
+
+    @property
+    def r2_loaded_subject_summary(self) -> tuple[float, float, float]:
+        """(worst, median, best) loaded-phase R^2 across held-out subjects."""
+        v = np.array([x for x in self.per_subject_r2_loaded.values() if np.isfinite(x)])
         return float(np.min(v)), float(np.median(v)), float(np.max(v))
 
 
@@ -127,6 +136,11 @@ def evaluate_predictions(
                   np.concatenate([p for _, p in v])) for s, v in by_subject.items()}
     per_subject_r2 = {s: r2_score(t, p) for s, (t, p) in concat.items()}
 
+    def _loaded_subject_r2(t, p):
+        m = t > LOADED_THRESHOLD_BW
+        return r2_score(t[m], p[m]) if m.any() else float("nan")
+    per_subject_r2_loaded = {s: _loaded_subject_r2(t, p) for s, (t, p) in concat.items()}
+
     all_true = np.concatenate([t for t, _ in concat.values()])
     all_pred = np.concatenate([p for _, p in concat.values()])
 
@@ -153,4 +167,5 @@ def evaluate_predictions(
         peak_mae_bw=peak_mae,
         peak_mape_pct=peak_mape,
         peak_agreement=bland_altman(peak_true, peak_pred),
+        per_subject_r2_loaded=per_subject_r2_loaded,
     )

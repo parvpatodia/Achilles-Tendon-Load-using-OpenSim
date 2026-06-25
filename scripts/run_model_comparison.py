@@ -69,6 +69,10 @@ def main() -> None:
           f"overlap -> the CNN does not beat linear here.")
     print(f"  - verdict: a compact linear map is sufficient (and ideal for on-device "
           f"inference); the wearable signal genuinely carries the internal-load curve.")
+    worst, median, best = lin.r2_loaded_subject_summary
+    print(f"  - worst held-out athlete (recommended linear model): loaded R2={worst:.2f} "
+          f"(median {median:.2f}, best {best:.2f}). A wearable is judged on its weakest "
+          f"athlete, so the worst case is reported, not just the average.")
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     out = FIGURES_DIR / "fig8_model_comparison.png"

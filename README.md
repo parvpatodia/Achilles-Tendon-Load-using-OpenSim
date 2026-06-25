@@ -102,6 +102,7 @@ We tested it with **5-fold cross-validation holding out whole people** (everyone
 - A **simple linear model ties the neural net** (their confidence intervals overlap). So **the neural net is not needed** here. We recommend the compact linear model: it runs on the insole's own chip.
 - **Each input earns its place:** ground push alone gives loaded R² 0.86, adding ankle angle 0.92, the full set 0.94. The model uses the signals, it is not trivially inverting one number.
 - Peak force agrees with the lab estimate with no systematic bias and a spread of about 0.93 BW (around 18% of a peak), which we report plainly rather than hide.
+- **The worst athlete, not just the average.** Most held-out athletes are modelled very well (median loaded R² 0.96), but the single worst athlete scores 0.47. A wearable is judged on its weakest case, so we report it: the average hides one real failure mode, and the per-athlete calibration step (§9) is how you would close it.
 
 **Is this circular, predicting your own formula?** Fair. The target needs full lab inverse dynamics (motion capture plus force plates). The model reproduces it from a reduced wearable signal, so it is a data-reduction result; the missing few percent live in the horizontal forces and accelerations we drop. It is **not** measured tendon load.
 

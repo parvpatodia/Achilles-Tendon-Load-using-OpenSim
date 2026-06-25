@@ -45,6 +45,11 @@ def test_evaluate_predictions_peak_and_loaded():
     assert m.r2 > 0.999 and m.r2_loaded > 0.999
     assert m.peak_mae_bw < 1e-6 and m.peak_mape_pct < 1e-3
     assert set(m.per_subject_r2) == {"A", "B"}
+    # loaded-phase per-subject R^2 is populated and ordered worst <= median <= best
+    assert set(m.per_subject_r2_loaded) == {"A", "B"}
+    worst, median, best = m.r2_loaded_subject_summary
+    assert worst <= median <= best
+    assert best > 0.999  # perfect prediction -> every subject near 1.0
 
 
 def test_baseline_shapes_and_ridge_beats_mean():
