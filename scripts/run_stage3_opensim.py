@@ -39,7 +39,10 @@ def main() -> int:
         print(f"[stage3] OpenSim not importable ({e}); skipping cross-check (bonus).")
         return 0
     if not MODEL_PATH.exists():
-        print(f"[stage3] model {MODEL_PATH} missing; skipping cross-check (bonus).")
+        print(f"[stage3] model {MODEL_PATH} missing; skipping cross-check (bonus). "
+              f"To reproduce it, place the standard OpenSim Gait2392 model "
+              f"(gait2392_thelen2003muscle.osim, shipped with the OpenSim application "
+              f"under Resources/Models/Gait2392_Simbody) at that path.")
         return 0
 
     from achilles.opensim_xcheck.pipeline import OpenSimMomentArmModel

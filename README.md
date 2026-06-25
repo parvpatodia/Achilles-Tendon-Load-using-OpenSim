@@ -187,7 +187,7 @@ python scripts/download_data.py --walking   # add walking data (~586 MB, optiona
 python scripts/run_all.py                   # every stage + figures
 pytest                                       # 47 tests (2 walking tests skip until you add walking data)
 ```
-No download: add `--source synthetic` to any stage. No OpenSim: that one cross-check skips, everything else runs. Without conda, `pip install -e ".[dev]"` pulls in pytest too.
+No download: add `--source synthetic` to any stage. No OpenSim: that one cross-check skips, everything else runs. To reproduce the OpenSim cross-check (§6d), put the standard Gait2392 model (`gait2392_thelen2003muscle.osim`, shipped with the OpenSim application under `Resources/Models/Gait2392_Simbody`) in `data/opensim/`. Without conda, `pip install -e ".[dev]"` pulls in pytest too.
 
 ## 11. How the code is built
 
