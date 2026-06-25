@@ -185,9 +185,9 @@ pip install -e .
 python scripts/download_data.py            # running data (~5 MB)
 python scripts/download_data.py --walking   # add walking data (~586 MB, optional)
 python scripts/run_all.py                   # every stage + figures
-pytest                                       # 42 tests
+pytest                                       # 47 tests (2 walking tests skip until you add walking data)
 ```
-No download: add `--source synthetic` to any stage. No OpenSim: that one cross-check skips, everything else runs.
+No download: add `--source synthetic` to any stage. No OpenSim: that one cross-check skips, everything else runs. Without conda, `pip install -e ".[dev]"` pulls in pytest too.
 
 ## 11. How the code is built
 

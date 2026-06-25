@@ -18,6 +18,11 @@ dependencies = [
     "openpyxl",
 ]
 
+[project.optional-dependencies]
+# Test dependency lives here too (also in requirements.txt and environment.yml),
+# so `pip install -e ".[dev]"` runs the suite without needing conda.
+dev = ["pytest"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
