@@ -166,6 +166,18 @@ The honest weakness in 6c is the worst held-out athlete (loaded R² 0.47): a **s
 
 Reading it honestly: one calibration step already recovers most of the worst-case gap, and two to three roughly halve peak error. This is the single biggest accuracy lever in the wearable-load literature (Kwon et al. 2023: new-subject 26 to 46% error, personalized 8 to 13%). The affine form also absorbs the constant part of a wrong per-athlete moment arm (§6d), the other dominant error. It does not fix random scatter or a genuinely unusual gait, and it needs those onboarding labels, so it is a one-time calibration step, not a free lunch.
 
+### 6i. Real time: the surrogate runs live
+
+The recommended model is a few multiply-adds per stride, so it runs as a live monitor, not only a batch analysis. Streaming a held-out athlete's strides (calibrating on the first two, then live):
+
+![realtime](figures/fig14_realtime.png)
+
+- **Latency:** ~0.4 ms per stride (~2,700 strides/s) on a laptop. A running stride lasts ~600-700 ms, so it runs real-time with orders of magnitude of headroom, and the same compact model fits the insole's own microcontroller (§8).
+- **Calibrated live:** on this hard-to-model athlete the raw surrogate over-predicts peak load by ~31%; after two onboarding strides (§6h) the calibrated output tracks the lab reference to ~7%.
+- **Asymmetry live:** the left/right peak-load asymmetry updates each stride.
+
+An interactive, self-contained dashboard is at `demo/realtime_demo.html` (open in any browser, no server): `python scripts/run_realtime_demo.py`. Honest scope: this replays real recorded cycles, so the model output is genuine per stride while the arrival of strides over time is simulated. On the Mirai insole the same engine consumes the live signal.
+
 ## 7. What this is NOT (limits, stated plainly)
 
 - **Stand-in data.** Public data stands in for your insole; the four zones are derived from total push, not measured pressure.

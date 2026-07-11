@@ -516,6 +516,52 @@ def plot_calibration(result, out_path: Path) -> Path:
     return out_path
 
 
+# --- Real-time demo snapshot (static proof of the live dashboard) ----------
+def plot_realtime_snapshot(results, summary, out_path: Path) -> Path:
+    """Static proof of the streaming demo: a calibrated held-out stride
+    (reference vs uncalibrated vs calibrated) and the per-stride peak load
+    across the stream, with the measured latency in the title."""
+    apply_house_style()
+    fig, (ax_c, ax_b) = plt.subplots(1, 2, figsize=(12, 4.6))
+
+    post = [r for r in results if not r.is_calibration_stride]
+    s = post[0] if post else results[-1]
+    ax_c.plot(s.phase, s.true_curve, color=INK, lw=2.2, label="lab reference")
+    ax_c.plot(s.phase, s.raw_pred_curve, color=WARN, lw=1.8, ls="--", label="surrogate, uncalibrated")
+    ax_c.plot(s.phase, s.pred_curve, color=GOOD, lw=2.4, label="surrogate, calibrated")
+    ax_c.set_title(f"One held-out stride ({s.side}, {s.speed_ms:g} m/s)")
+    ax_c.set_xlabel("Gait cycle (%)")
+    ax_c.set_ylabel("Achilles force (body weights)")
+    ax_c.set_xlim(0, 100)
+    ax_c.legend(fontsize=9)
+
+    idx = np.arange(len(results))
+    pk_true = [r.peak_true_bw for r in results]
+    pk_raw = [float(np.max(r.raw_pred_curve)) for r in results]
+    pk_cal = [r.peak_pred_bw for r in results]
+    w = 0.27
+    ax_b.bar(idx - w, pk_true, w, color=INK, alpha=0.85, label="lab reference")
+    ax_b.bar(idx, pk_raw, w, color=WARN, alpha=0.85, label="uncalibrated")
+    ax_b.bar(idx + w, pk_cal, w, color=GOOD, alpha=0.85, label="calibrated")
+    ax_b.axvline(summary.calib_k - 0.5, color=MUTED, ls=":", lw=1.3)
+    ax_b.text(summary.calib_k - 0.5, ax_b.get_ylim()[1] * 0.97, " calibrated ->",
+              color=MUTED, fontsize=9, va="top")
+    ax_b.set_title("Peak Achilles load per stride")
+    ax_b.set_xlabel("Stride (stream order)")
+    ax_b.set_ylabel("Peak force (body weights)")
+    ax_b.set_xticks(idx)
+    ax_b.legend(fontsize=9)
+
+    fig.suptitle(f"Real-time surrogate on a held-out athlete: {summary.mean_latency_ms:.2f} ms/stride "
+                 f"(~{round(summary.strides_per_sec):,} strides/s), peak error "
+                 f"{summary.peak_mape_uncal:.0f}% -> {summary.peak_mape_cal:.0f}% after calibration",
+                 fontsize=12, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Pipeline diagram for the README --------------------------------------
 def plot_pipeline_diagram(out_path: Path) -> Path:
     apply_house_style()
