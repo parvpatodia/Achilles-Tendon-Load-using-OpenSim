@@ -474,6 +474,48 @@ def plot_data_efficiency(result, out_path: Path) -> Path:
     return out_path
 
 
+# --- Subject-specific calibration ------------------------------------------
+def plot_calibration(result, out_path: Path) -> Path:
+    """Worst-athlete loaded R^2 and peak error vs the number of an athlete's own
+    calibration steps, uncalibrated vs calibrated. Shows a systematic per-person
+    bias is removed with a handful of steps (the base model never saw the athlete)."""
+    apply_house_style()
+    ks = np.array(result.ks)
+    fig, (ax_r, ax_p) = plt.subplots(1, 2, figsize=(12, 4.6))
+
+    u_w = [result.uncal_worst_loaded_r2[k] for k in result.ks]
+    c_w = [result.cal_worst_loaded_r2[k] for k in result.ks]
+    ax_r.plot(ks, u_w, "--o", color=MUTED, lw=2, ms=5, label="uncalibrated")
+    ax_r.plot(ks, c_w, "-o", color=ACCENT2, lw=2.4, ms=6, label="calibrated")
+    ax_r.fill_between(ks, u_w, c_w, color=ACCENT2, alpha=0.12)
+    ax_r.set_title("Worst held-out athlete")
+    ax_r.set_xlabel("Athlete's own calibration steps (K)")
+    ax_r.set_ylabel("Loaded-phase R²")
+    ax_r.set_xticks(ks)
+    ax_r.set_ylim(0, 1)
+    ax_r.legend(loc="lower right")
+
+    u_p = [result.uncal_peak_mape[k] for k in result.ks]
+    c_p = [result.cal_peak_mape[k] for k in result.ks]
+    ax_p.plot(ks, u_p, "--o", color=MUTED, lw=2, ms=5, label="uncalibrated")
+    ax_p.plot(ks, c_p, "-o", color=ACCENT, lw=2.4, ms=6, label="calibrated")
+    ax_p.fill_between(ks, c_p, u_p, color=ACCENT, alpha=0.12)
+    ax_p.set_title("Peak-force error")
+    ax_p.set_xlabel("Athlete's own calibration steps (K)")
+    ax_p.set_ylabel("Peak MAPE (%)")
+    ax_p.set_xticks(ks)
+    ax_p.set_ylim(0, max(u_p + c_p) * 1.25)
+    ax_p.legend(loc="upper right")
+
+    fig.suptitle(f"Subject-specific calibration ({result.method}): a few of the athlete's "
+                 f"own steps remove the systematic per-person bias",
+                 fontsize=13, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(out_path)
+    plt.close(fig)
+    return out_path
+
+
 # --- Pipeline diagram for the README --------------------------------------
 def plot_pipeline_diagram(out_path: Path) -> Path:
     apply_house_style()

@@ -149,6 +149,23 @@ Two questions a reviewer will ask, answered by measurement rather than assertion
 
 This sharpens the recommendation from 6c: use the compact linear model. It is not only good enough on the full cohort, it is the safer choice in the small calibration cohort (§9) where a pilot begins.
 
+### 6h. Subject-specific calibration: fixing the worst athlete
+![calibration](figures/fig13_calibration.png)
+
+*Two panels vs. the number of an athlete's own calibration steps (K). Left: the worst held-out athlete's loaded R², uncalibrated (grey) vs. calibrated (orange). Right: peak-force error, same two lines. Both improve sharply by K=1-2.*
+
+The honest weakness in 6c is the worst held-out athlete (loaded R² 0.47): a **systematic** per-person bias (the model over-predicts that low-load runner's push-off by ~1.2 BW on every stride), not random scatter. A systematic bias is removable with a few of that athlete's own steps. We take each athlete's out-of-fold prediction, fit a two-parameter affine correction (scale + offset) on K of their steps, and apply it to the rest, scoring only the held-out remainder. The base model never trained on this athlete, and the K calibration labels come once, at onboarding, from the lab reference of §9.
+
+| K own steps | loaded R² (uncal → cal) | worst athlete (uncal → cal) | peak error (uncal → cal) |
+|---|---|---|---|
+| 1 | 0.94 → 0.96 | 0.50 → 0.76 | 7.4% → 5.3% |
+| 2 | 0.94 → 0.96 | 0.52 → 0.78 | 7.4% → 4.4% |
+| 3 | 0.94 → 0.97 | 0.46 → 0.75 | 7.5% → 4.4% |
+
+*(recommended linear model, 5-fold subject-wise CV, averaged over 5 seeded draws of which steps calibrate. `python scripts/run_calibration.py`.)*
+
+Reading it honestly: one calibration step already recovers most of the worst-case gap, and two to three roughly halve peak error. This is the single biggest accuracy lever in the wearable-load literature (Kwon et al. 2023: new-subject 26 to 46% error, personalized 8 to 13%). The affine form also absorbs the constant part of a wrong per-athlete moment arm (§6d), the other dominant error. It does not fix random scatter or a genuinely unusual gait, and it needs those onboarding labels, so it is a one-time calibration step, not a free lunch.
+
 ## 7. What this is NOT (limits, stated plainly)
 
 - **Stand-in data.** Public data stands in for your insole; the four zones are derived from total push, not measured pressure.
@@ -185,7 +202,7 @@ pip install -e .
 python scripts/download_data.py            # running data (~5 MB)
 python scripts/download_data.py --walking   # add walking data (~586 MB, optional)
 python scripts/run_all.py                   # every stage + figures
-pytest                                       # 47 tests (2 walking tests skip until you add walking data)
+pytest                                       # 51 tests (2 walking tests skip until you add walking data)
 ```
 No download: add `--source synthetic` to any stage. No OpenSim: that one cross-check skips, everything else runs. To reproduce the OpenSim cross-check (§6d), put the standard Gait2392 model (`gait2392_thelen2003muscle.osim`, shipped with the OpenSim application under `Resources/Models/Gait2392_Simbody`) in `data/opensim/`. Without conda, `pip install -e ".[dev]"` pulls in pytest too.
 
