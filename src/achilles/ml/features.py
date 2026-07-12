@@ -49,8 +49,31 @@ def _stance_position(vgrf_bw: np.ndarray) -> np.ndarray:
     return pos
 
 
-def build_features(trial: GaitTrial) -> np.ndarray:
-    """Return a (N_FEATURES, n_samples) array of wearable-proxy channels."""
+def _derived_zone_shares(vgrf_bw: np.ndarray) -> np.ndarray:
+    """The modelled CoP-progression proxy: a Gaussian bump per zone along stance.
+
+    Returns (4, n) spatial shares (before gating by total load). This is the
+    PROXY the surrogate uses when no real insole is available.
+    """
+    pos = _stance_position(vgrf_bw)
+    bumps = [np.exp(-0.5 * ((pos - _ZONE_CENTERS[z]) / _ZONE_WIDTH) ** 2) for z in ZONE_NAMES]
+    return np.vstack(bumps)
+
+
+def build_features(trial: GaitTrial, use_measured: bool = True) -> np.ndarray:
+    """Return a (N_FEATURES, n_samples) array of wearable input channels.
+
+    Channels 1-2 (vertical GRF in BW, ankle angle) are identical either way.
+    Channels 3-6 are the four insole zones, formed as ``vGRF_BW * spatial_share``
+    so the two arms differ ONLY in where that share comes from:
+
+      * measured (use_measured and trial.measured_zones present): the real
+        16->4 Moticon pressure split, normalised to a per-frame spatial share.
+      * derived (otherwise): the modelled heel->toe CoP bump.
+
+    Holding vGRF, angle, target, and architecture fixed and swapping only the
+    zone source is the controlled measured-vs-derived comparison (Stage C).
+    """
     if not trial.has_grf:
         raise ValueError(
             f"trial {trial.trial_id} has no vertical GRF; the surrogate needs a "
@@ -58,11 +81,17 @@ def build_features(trial: GaitTrial) -> np.ndarray:
         )
     vgrf_bw = trial.vgrf_bw
     angle = trial.ankle_angle_deg
-    pos = _stance_position(vgrf_bw)
+
+    if use_measured and trial.measured_zones is not None:
+        # real plantar pressure -> per-frame spatial share across the 4 zones
+        mz = trial.measured_zones.astype(np.float64)          # (4, n) N/cm^2
+        total = mz.sum(axis=0, keepdims=True)
+        shares = np.divide(mz, total, out=np.zeros_like(mz), where=total > 1e-6)
+    else:
+        shares = _derived_zone_shares(vgrf_bw)                # (4, n) modelled bump
 
     channels = [vgrf_bw, angle]
-    for z in ZONE_NAMES:
-        bump = np.exp(-0.5 * ((pos - _ZONE_CENTERS[z]) / _ZONE_WIDTH) ** 2)
-        # zone load = total plantar load gated by that zone's spatial window
-        channels.append(vgrf_bw * bump)
+    for k in range(len(ZONE_NAMES)):
+        # zone load = total plantar load gated by that zone's spatial share
+        channels.append(vgrf_bw * shares[k])
     return np.vstack(channels).astype(np.float32)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from achilles.data.base import GaitDataSource
 from achilles.data.fukuchi import FukuchiDataSource
+from achilles.data.grouvel import GrouvelDataSource
 from achilles.data.synthetic import SyntheticGaitSource
 from achilles.data.walking import WalkingDataSource
 
@@ -18,9 +19,13 @@ def make_source(name: str = "fukuchi", **kwargs) -> GaitDataSource:
         return FukuchiDataSource(**kwargs)
     if name == "walking":
         return WalkingDataSource(**kwargs)
+    if name == "grouvel":
+        return GrouvelDataSource(**kwargs)
     if name == "synthetic":
         return SyntheticGaitSource(**kwargs)
-    raise ValueError(f"unknown source {name!r} (use 'fukuchi', 'walking', or 'synthetic')")
+    raise ValueError(
+        f"unknown source {name!r} (use 'fukuchi', 'walking', 'grouvel', or 'synthetic')"
+    )
 
 
 def resolve_source(name: str = "fukuchi") -> tuple[GaitDataSource, str]:
