@@ -41,6 +41,13 @@ class GaitTrial:
     # source. Lets each athlete have their own lever instead of one fixed value.
     moment_arm_scale: float = 1.0
     task: str = "run"   # "run" or "walk"
+    # Real measured plantar-pressure zones (4, n_samples), one row per zone in
+    # features.ZONE_NAMES order (heel, arch, forefoot, bigtoe), units N/cm^2.
+    # Present only for sources that carry an instrumented insole (Grouvel); None
+    # everywhere else, in which case features.py derives the CoP-progression
+    # proxy instead. This is the one channel that separates a REAL insole from a
+    # modelled one, so it is optional and never assumed.
+    measured_zones: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         n = len(self.gait_phase)
@@ -55,6 +62,13 @@ class GaitTrial:
             raise ValueError(f"side must be 'R' or 'L', got {self.side!r}")
         if self.body_mass_kg <= 0:
             raise ValueError(f"body_mass_kg must be > 0, got {self.body_mass_kg}")
+        if self.measured_zones is not None:
+            mz = self.measured_zones
+            if mz.ndim != 2 or mz.shape[0] != 4 or mz.shape[1] != n:
+                raise ValueError(
+                    f"measured_zones must be (4, {n}) (4 insole zones x gait "
+                    f"phase), got {mz.shape}"
+                )
 
     @property
     def has_grf(self) -> bool:
